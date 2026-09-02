@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moonlight Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,500;0,600;1,500&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0e1326;
+    --bg-deep: #090c1a;
+    --paper: rgba(30, 39, 71, 0.62);
+    --paper-alt: rgba(255,255,255,0.045);
+    --ink: #eef0fb;
+    --ink-soft: #a3adce;
+    --border: rgba(197, 209, 255, 0.16);
+    --gold: #d9c383;
+    --gold-dim: #8f8256;
+    --silver: #b9c6ef;
+    --danger: #d18a76;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html{ background: var(--bg-deep); }
+
+  body{
+    margin:0;
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: 'Crimson Pro', serif;
+    font-size: 18px;
+    line-height: 1.55;
+    position: relative;
+    background:
+      radial-gradient(ellipse 900px 500px at 82% -8%, rgba(217,195,131,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 600px at 8% 12%, rgba(185,198,239,0.08), transparent 55%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+  }
+
+  .stars{
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .star{
+    position: absolute;
+    border-radius: 50%;
+    background: #fff;
+    animation: twinkle var(--dur, 3s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+  }
+  @keyframes twinkle{
+    0%, 100%{ opacity: var(--o-min, 0.25); transform: scale(1); }
+    50%{ opacity: var(--o-max, 0.95); transform: scale(1.4); }
+  }
+
+  .shooting-star{
+    position: fixed;
+    top: var(--top, 10%);
+    left: var(--left, 70%);
+    width: 130px;
+    height: 1.5px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255,255,255,0));
+    border-radius: 2px;
+    opacity: 0;
+    transform: rotate(-32deg);
+    z-index: 0;
+    pointer-events: none;
+    animation: shoot var(--dur, 12s) ease-in var(--delay, 0s) infinite;
+  }
+  @keyframes shoot{
+    0%{ opacity: 0; transform: translate(0,0) rotate(-32deg); }
+    2%{ opacity: 1; }
+    9%{ opacity: 0; transform: translate(-320px, 220px) rotate(-32deg); }
+    100%{ opacity: 0; transform: translate(-320px, 220px) rotate(-32deg); }
+  }
+
+  .mist{
+    position: fixed;
+    width: 520px;
+    height: 200px;
+    top: 14%;
+    left: -20%;
+    background: radial-gradient(ellipse at center, rgba(185,198,239,0.07), transparent 70%);
+    filter: blur(18px);
+    z-index: 0;
+    pointer-events: none;
+    animation: driftMist 110s linear infinite;
+  }
+  .mist.m2{
+    top: 58%;
+    width: 620px;
+    height: 240px;
+    background: radial-gradient(ellipse at center, rgba(217,195,131,0.05), transparent 70%);
+    animation-duration: 150s;
+    animation-delay: -60s;
+  }
+  @keyframes driftMist{
+    0%{ transform: translateX(0); }
+    100%{ transform: translateX(160vw); }
+  }
+
+  .moon{
+    position: absolute;
+    top: 46px;
+    right: 6%;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 62% 70%, rgba(143,130,86,0.55) 0 4px, transparent 5px),
+      radial-gradient(circle at 40% 55%, rgba(143,130,86,0.45) 0 3px, transparent 4px),
+      radial-gradient(circle at 58% 30%, rgba(143,130,86,0.4) 0 2.5px, transparent 3.5px),
+      radial-gradient(circle at 35% 25%, #fdf6df, var(--gold) 70%);
+    box-shadow: 0 0 34px 6px rgba(217,195,131,0.35);
+    z-index: 0;
+    animation: moonGlow 7s ease-in-out infinite;
+  }
+  .moon::after{
+    content:'';
+    position: absolute;
+    top: -6px;
+    left: -16px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--bg-deep);
+  }
+  @keyframes moonGlow{
+    0%, 100%{ box-shadow: 0 0 30px 4px rgba(217,195,131,0.3); }
+    50%{ box-shadow: 0 0 48px 10px rgba(217,195,131,0.55); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .star, .shooting-star, .mist, .moon{ animation: none !important; }
+  }
+
+  .wrap{
+    position: relative;
+    z-index: 1;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 48px 20px 96px;
+  }
+
+  header.top{
+    display:flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 44px;
+  }
+
+  .title-wrap{
+    position: relative;
+    display: inline-block;
+  }
+  .title-wrap::before{
+    content:'';
+    position: absolute;
+    inset: -36px -28px -8px;
+    background: radial-gradient(circle at 25% 20%, rgba(217,195,131,0.4), transparent 65%);
+    filter: blur(10px);
+    opacity: 0;
+    transition: opacity .6s ease;
+    z-index: -1;
+    pointer-events: none;
+  }
+  .title-wrap:hover::before{ opacity: 1; }
+
+  h1{
+    font-family: 'Cormorant', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.6rem;
+    margin: 0 0 8px;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+    text-shadow: 0 0 0 rgba(217,195,131,0);
+    transition: text-shadow .6s ease, letter-spacing .6s ease, color .6s ease;
+  }
+  .title-wrap:hover h1{
+    color: #fbf3dd;
+    letter-spacing: 0.03em;
+    text-shadow: 0 0 16px rgba(217,195,131,0.85), 0 0 40px rgba(185,198,239,0.4);
+  }
+
+  .subtitle{
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 42ch;
+  }
+
+  .admin-toggle{
+    font-family: 'Crimson Pro', serif;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    color: var(--ink-soft);
+    padding: 7px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .admin-toggle:hover{ border-color: var(--silver); color: var(--silver); }
+  .admin-toggle.is-admin{ border-color: var(--gold); color: var(--gold); }
+
+  section.panel{
+    background: var(--paper);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 28px 26px 30px;
+    margin-bottom: 26px;
+    box-shadow: 0 20px 40px -28px rgba(0,0,0,0.6);
+  }
+
+  section.panel h2{
+    font-family: 'Cormorant', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 1.5rem;
+    margin: 0 0 4px;
+    color: var(--gold);
+  }
+
+  .panel-desc{
+    color: var(--ink-soft);
+    font-size: 0.94rem;
+    margin: 0 0 18px;
+  }
+
+  ul.simple-list{
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  ul.simple-list li{
+    background: var(--paper-alt);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .li-name{ font-weight: 600; color: var(--ink); }
+  .li-meta{ color: var(--ink-soft); font-size: 0.9rem; margin-top: 2px; }
+  .li-meta b{ color: var(--silver); font-weight: 600; }
+  .li-admin-only{ color: var(--gold-dim); font-style: italic; }
+
+  .empty-note{
+    color: var(--ink-soft);
+    font-style: italic;
+    font-size: 0.95rem;
+  }
+
+  .icon-btn{
+    background:none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    border-radius: 3px;
+    flex-shrink:0;
+  }
+  .icon-btn:hover{ color: var(--danger); background: rgba(209,138,118,0.1); }
+
+  .admin-add{
+    border-top: 1px dashed var(--border);
+    padding-top: 16px;
+    margin-top: 16px;
+    display:grid;
+    gap: 10px;
+  }
+  .admin-add.cols-2{ grid-template-columns: 1fr 1fr; }
+  .admin-add.cols-1{ grid-template-columns: 1fr; }
+  .admin-add .full{ grid-column: 1/-1; }
+
+  label{
+    display:block;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin-bottom: 3px;
+  }
+
+  input{
+    width: 100%;
+    font-family: 'Crimson Pro', serif;
+    font-size: 1rem;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: rgba(255,255,255,0.04);
+    color: var(--ink);
+  }
+  input::placeholder{ color: rgba(163,173,206,0.55); }
+  input:focus, button:focus-visible{
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+
+  .submit-btn{
+    grid-column: 1 / -1;
+    justify-self: start;
+    font-family: 'Cormorant', serif;
+    font-style: italic;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    background: var(--gold);
+    color: #241c0c;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background .15s ease;
+  }
+  .submit-btn:hover{ background: #e8d49c; }
+  .submit-btn[disabled]{ opacity:0.5; cursor:not-allowed; }
+
+  dialog{
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0;
+    background: #161d38;
+    color: var(--ink);
+    max-width: 340px;
+    width: 90%;
+  }
+  dialog::backdrop{ background: rgba(5,7,16,0.6); }
+  .dialog-inner{ padding: 24px; }
+  .dialog-inner h3{ font-family:'Cormorant', serif; font-style: italic; margin: 0 0 14px; font-size: 1.3rem; color: var(--gold); }
+  .dialog-field{ margin-bottom: 12px; }
+  .dialog-actions{ display:flex; gap:10px; margin-top: 18px; }
+  .dialog-actions button{ font-family:'Crimson Pro', serif; padding: 8px 16px; border-radius: 3px; cursor:pointer; font-size:0.95rem; }
+  .btn-primary{ background: var(--gold); color:#241c0c; border:none; }
+  .btn-ghost{ background:none; border:1px solid var(--border); color: var(--ink-soft); }
+  .dialog-error{ color: var(--danger); font-size: 0.88rem; min-height: 1.2em; margin-top: 6px; }
+
+  footer.status{
+    text-align:center;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-top: 8px;
+  }
+
+  @media (max-width: 480px){
+    header.top{ flex-direction: column; }
+    .admin-add.cols-2{ grid-template-columns: 1fr; }
+    .moon{ top: 20px; right: 20px; width: 34px; height: 34px; }
+    .moon::after{ width: 34px; height: 34px; top: -4px; left: -11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stars" id="starsLayer" aria-hidden="true"></div>
+<div class="mist m1" aria-hidden="true"></div>
+<div class="mist m2" aria-hidden="true"></div>
+<div class="shooting-star" style="--top:8%; --left:80%; --dur:16s; --delay:2s" aria-hidden="true"></div>
+<div class="shooting-star" style="--top:22%; --left:55%; --dur:22s; --delay:9s" aria-hidden="true"></div>
+<div class="shooting-star" style="--top:4%; --left:35%; --dur:19s; --delay:14s" aria-hidden="true"></div>
+<div class="moon" aria-hidden="true"></div>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="title-wrap">
+        <h1>Moonlight Team</h1>
+      </div>
+      <p class="subtitle">Quién lleva cada personaje ahora mismo, cuáles están reservados y cuáles andamos buscando bajo la luna.</p>
+    </div>
+    <button class="admin-toggle" id="adminToggleBtn">Acceso admin</button>
+  </header>
+
+  <section class="panel">
+    <h2>Ocupados</h2>
+    <p class="panel-desc">Ya están en manos de alguien del equipo.</p>
+    <ul class="simple-list" id="ocupadosList"></ul>
+    <p class="empty-note" id="ocupadosEmpty" hidden>Nadie tiene un personaje ocupado todavía.</p>
+
+    <div class="admin-add cols-1" id="ocupadoAdminForm" hidden>
+      <div class="full">
+        <label for="ocNombre">Personaje</label>
+        <input id="ocNombre" type="text" maxlength="40" placeholder="Beidou">
+      </div>
+      <button class="submit-btn" id="ocAddBtn" type="button">Añadir a ocupados</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Reservados</h2>
+    <p class="panel-desc">Apartados para alguien, sin más detalle público.</p>
+    <ul class="simple-list" id="reservadosList"></ul>
+    <p class="empty-note" id="reservadosEmpty" hidden>No hay personajes reservados ahora mismo.</p>
+
+    <div class="admin-add cols-1" id="reservadoAdminForm" hidden>
+      <div class="full">
+        <label for="rNombre">Personaje</label>
+        <input id="rNombre" type="text" maxlength="40" placeholder="Beidou">
+      </div>
+      <button class="submit-btn" id="rAddBtn" type="button">Añadir a reservados</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Buscados</h2>
+    <p class="panel-desc">Si buscas un personaje, díselo a un admin para que lo añada aquí.</p>
+    <ul class="simple-list" id="buscadosList"></ul>
+    <p class="empty-note" id="buscadosEmpty" hidden>Nadie está buscando personaje ahora mismo.</p>
+
+    <div class="admin-add cols-2" id="buscadoAdminForm" hidden>
+      <div>
+        <label for="bNombre">Personaje</label>
+        <input id="bNombre" type="text" maxlength="40" placeholder="Beidou">
+      </div>
+      <div>
+        <label for="bPedidoPor">Lo pide</label>
+        <input id="bPedidoPor" type="text" maxlength="40" placeholder="Nombre">
+      </div>
+      <div class="full">
+        <label for="bMotivo">Para qué lo busca</label>
+        <input id="bMotivo" type="text" maxlength="80" placeholder="Ej: pareja, equipo de co-op, sub DPS...">
+      </div>
+      <div class="full">
+        <label for="bFecha">Fecha solicitada (solo visible para admins)</label>
+        <input id="bFecha" type="date">
+      </div>
+      <button class="submit-btn" id="bAddBtn" type="button">Añadir a buscados</button>
+    </div>
+  </section>
+
+  <footer class="status" id="statusLine"></footer>
+</div>
+
+<dialog id="loginDialog">
+  <div class="dialog-inner">
+    <h3>Acceso admin</h3>
+    <div class="dialog-field">
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" type="email" autocomplete="username">
+    </div>
+    <div class="dialog-field">
+      <label for="loginPass">Contraseña</label>
+      <input id="loginPass" type="password" autocomplete="current-password">
+    </div>
+    <p class="dialog-error" id="loginError"></p>
+    <div class="dialog-actions">
+      <button class="btn-primary" id="loginSubmit" type="button">Entrar</button>
+      <button class="btn-ghost" id="loginCancel" type="button">Cancelar</button>
+    </div>
+  </div>
+</dialog>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, deleteDoc, doc,
+    onSnapshot, query, orderBy, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCJw3MuQQrYZ7xaabbKhK5Q4fAAB5xzZsk",
+    authDomain: "moonlight-teamm-947ee.firebaseapp.com",
+    projectId: "moonlight-teamm-947ee",
+    storageBucket: "moonlight-teamm-947ee.firebasestorage.app",
+    messagingSenderId: "664050217208",
+    appId: "1:664050217208:web:194120b9ab73b43a984b0d"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  // ---------- Campo de estrellas ----------
+  (function paintStars(){
+    const layer = document.getElementById('starsLayer');
+    const count = window.innerWidth < 480 ? 26 : 42;
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < count; i++){
+      const s = document.createElement('span');
+      s.className = 'star';
+      const size = (Math.random() * 1.6 + 0.8).toFixed(2);
+      s.style.top = (Math.random() * 100).toFixed(2) + '%';
+      s.style.left = (Math.random() * 100).toFixed(2) + '%';
+      s.style.width = size + 'px';
+      s.style.height = size + 'px';
+      s.style.setProperty('--dur', (Math.random() * 3 + 2).toFixed(2) + 's');
+      s.style.setProperty('--delay', (Math.random() * 5).toFixed(2) + 's');
+      s.style.setProperty('--o-min', (Math.random() * 0.2 + 0.15).toFixed(2));
+      s.style.setProperty('--o-max', (Math.random() * 0.3 + 0.7).toFixed(2));
+      frag.appendChild(s);
+    }
+    layer.appendChild(frag);
+  })();
+
+  let isAdmin = false;
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Admin login ----------
+  const adminToggleBtn = $('adminToggleBtn');
+  const loginDialog = $('loginDialog');
+  const loginEmail = $('loginEmail');
+  const loginPass = $('loginPass');
+  const loginError = $('loginError');
+  const statusLine = $('statusLine');
+
+  adminToggleBtn.addEventListener('click', () => {
+    if (isAdmin) {
+      signOut(auth);
+    } else {
+      loginError.textContent = '';
+      loginEmail.value = '';
+      loginPass.value = '';
+      loginDialog.showModal();
+    }
+  });
+
+  $('loginCancel').addEventListener('click', () => loginDialog.close());
+
+  $('loginSubmit').addEventListener('click', async () => {
+    loginError.textContent = '';
+    try {
+      await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPass.value);
+      loginDialog.close();
+    } catch (e) {
+      loginError.textContent = 'Email o contraseña incorrectos.';
+    }
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    isAdmin = !!user;
+    adminToggleBtn.textContent = isAdmin ? 'Salir del modo admin' : 'Acceso admin';
+    adminToggleBtn.classList.toggle('is-admin', isAdmin);
+    $('ocupadoAdminForm').hidden = !isAdmin;
+    $('reservadoAdminForm').hidden = !isAdmin;
+    $('buscadoAdminForm').hidden = !isAdmin;
+    paintOcupados();
+    paintReservados();
+    paintBuscados();
+  });
+
+  function escapeHtml(str){
+    return String(str ?? '').replace(/[&<>"']/g, (m) => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[m]));
+  }
+
+  function makeDeleteBtn(collectionName, id){
+    const btn = document.createElement('button');
+    btn.className = 'icon-btn';
+    btn.textContent = 'Quitar';
+    btn.addEventListener('click', () => deleteDoc(doc(db, collectionName, id)));
+    return btn;
+  }
+
+  // ---------- Genérico: lista simple (ocupados / reservados) ----------
+  function setupSimpleList(collectionName, listEl, emptyEl){
+    let cache = [];
+    onSnapshot(query(collection(db, collectionName), orderBy('createdAt', 'desc')),
+      (snap) => { cache = snap.docs.map(d => ({ id: d.id, ...d.data() })); paint(); },
+      () => { statusLine.textContent = 'No se pudo conectar con la base de datos.'; }
+    );
+    function paint(){
+      listEl.innerHTML = '';
+      emptyEl.hidden = cache.length !== 0;
+      cache.forEach(item => {
+        const li = document.createElement('li');
+        const span = document.createElement('span');
+        span.className = 'li-name';
+        span.textContent = item.nombre;
+        li.appendChild(span);
+        if (isAdmin) li.appendChild(makeDeleteBtn(collectionName, item.id));
+        listEl.appendChild(li);
+      });
+    }
+    return { paint };
+  }
+
+  const ocupadosCtl = setupSimpleList('ocupados', $('ocupadosList'), $('ocupadosEmpty'));
+  const reservadosCtl = setupSimpleList('reservados', $('reservadosList'), $('reservadosEmpty'));
+  function paintOcupados(){ ocupadosCtl.paint(); }
+  function paintReservados(){ reservadosCtl.paint(); }
+
+  $('ocAddBtn').addEventListener('click', async () => {
+    const nombre = $('ocNombre').value.trim();
+    if (!nombre) return;
+    await addDoc(collection(db, 'ocupados'), { nombre, createdAt: serverTimestamp() });
+    $('ocNombre').value = '';
+  });
+
+  $('rAddBtn').addEventListener('click', async () => {
+    const nombre = $('rNombre').value.trim();
+    if (!nombre) return;
+    await addDoc(collection(db, 'reservados'), { nombre, createdAt: serverTimestamp() });
+    $('rNombre').value = '';
+  });
+
+  // ---------- Buscados (con quién y para qué) ----------
+  const buscadosList = $('buscadosList');
+  const buscadosEmpty = $('buscadosEmpty');
+  let buscadosCache = [];
+
+  onSnapshot(query(collection(db, 'buscados'), orderBy('createdAt', 'desc')),
+    (snap) => { buscadosCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); paintBuscados(); },
+    () => { statusLine.textContent = 'No se pudo conectar con la base de datos.'; }
+  );
+
+  function formatFecha(fecha){
+    if (!fecha) return null;
+    const [y, m, d] = fecha.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function paintBuscados(){
+    buscadosList.innerHTML = '';
+    buscadosEmpty.hidden = buscadosCache.length !== 0;
+    buscadosCache.forEach(r => {
+      const li = document.createElement('li');
+      const fechaTxt = isAdmin && r.fecha ? formatFecha(r.fecha) : null;
+      li.innerHTML = `
+        <div>
+          <div class="li-name">${escapeHtml(r.nombre)}</div>
+          <div class="li-meta">Lo pide <b>${escapeHtml(r.pedidoPor)}</b> — ${escapeHtml(r.motivo)}</div>
+          ${fechaTxt ? `<div class="li-meta li-admin-only">Solicitado el ${escapeHtml(fechaTxt)}</div>` : ''}
+        </div>
+      `;
+      if (isAdmin) li.appendChild(makeDeleteBtn('buscados', r.id));
+      buscadosList.appendChild(li);
+    });
+  }
+
+  $('bAddBtn').addEventListener('click', async () => {
+    const nombre = $('bNombre').value.trim();
+    const pedidoPor = $('bPedidoPor').value.trim();
+    const motivo = $('bMotivo').value.trim();
+    const fecha = $('bFecha').value;
+    if (!nombre || !pedidoPor || !motivo) return;
+    const btn = $('bAddBtn');
+    btn.disabled = true;
+    try {
+      await addDoc(collection(db, 'buscados'), { nombre, pedidoPor, motivo, fecha: fecha || null, createdAt: serverTimestamp() });
+      $('bNombre').value = ''; $('bPedidoPor').value = ''; $('bMotivo').value = ''; $('bFecha').value = '';
+    } catch (e) {
+      statusLine.textContent = 'No se pudo añadir, inténtalo de nuevo.';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
