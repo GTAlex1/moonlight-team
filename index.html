@@ -578,7 +578,7 @@
   // ---------- Genérico: lista simple (ocupados / reservados) ----------
   function setupSimpleList(collectionName, listEl, emptyEl){
     let cache = [];
-    onSnapshot(query(collection(db, collectionName), orderBy('createdAt', 'desc')),
+    onSnapshot(query(collection(db, collectionName), orderBy('createdAt', 'asc')),
       (snap) => { cache = snap.docs.map(d => ({ id: d.id, ...d.data() })); paint(); },
       () => { statusLine.textContent = 'No se pudo conectar con la base de datos.'; }
     );
@@ -622,7 +622,7 @@
   const buscadosEmpty = $('buscadosEmpty');
   let buscadosCache = [];
 
-  onSnapshot(query(collection(db, 'buscados'), orderBy('createdAt', 'desc')),
+  onSnapshot(query(collection(db, 'buscados'), orderBy('createdAt', 'asc')),
     (snap) => { buscadosCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); paintBuscados(); },
     () => { statusLine.textContent = 'No se pudo conectar con la base de datos.'; }
   );
