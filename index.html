@@ -811,17 +811,17 @@
 
     lines.push('*Ocupados*');
     if (!allCaches.ocupados.length) lines.push('_(nadie)_');
-    else allCaches.ocupados.forEach(c => lines.push('- ' + c.nombre));
+    else allCaches.ocupados.forEach(c => lines.push('ᰔ ' + c.nombre));
     lines.push('');
 
     lines.push('*Reservados*');
     if (!allCaches.reservados.length) lines.push('_(nadie)_');
-    else allCaches.reservados.forEach(c => lines.push('- ' + c.nombre));
+    else allCaches.reservados.forEach(c => lines.push('ᰔ ' + c.nombre));
     lines.push('');
 
     lines.push('*Buscados*');
     if (!allCaches.buscados.length) lines.push('_(nadie)_');
-    else allCaches.buscados.forEach(r => lines.push(`- ${r.nombre} — pide ${r.pedidoPor} (${r.motivo})`));
+    else allCaches.buscados.forEach(r => lines.push(`ᰔ ${r.nombre} — pide ${r.pedidoPor} (${r.motivo})`));
 
     return lines.join('\n');
   }
