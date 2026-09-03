@@ -213,6 +213,26 @@
   .admin-toggle:hover{ border-color: var(--silver); color: var(--silver); }
   .admin-toggle.is-admin{ border-color: var(--gold); color: var(--gold); }
 
+  .search-wrap{
+    position: relative;
+    z-index: 1;
+    margin-bottom: 26px;
+  }
+  #searchInput{
+    width: 100%;
+    font-family: 'Crimson Pro', serif;
+    font-size: 1.02rem;
+    padding: 11px 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.045);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--ink);
+  }
+  #searchInput::placeholder{ color: rgba(163,173,206,0.6); font-style: italic; }
+  #searchInput:focus{ outline: 2px solid var(--gold); outline-offset: 1px; border-color: var(--gold-dim); }
+
   section.panel{
     background: var(--paper);
     backdrop-filter: blur(10px);
@@ -362,6 +382,35 @@
     margin-top: 8px;
   }
 
+  ::-webkit-scrollbar{ width: 10px; }
+  ::-webkit-scrollbar-track{ background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb{
+    background: linear-gradient(180deg, var(--silver), var(--gold-dim));
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover{ background: var(--gold); }
+
+  .li-name::before{
+    content: '✦ ';
+    color: var(--gold-dim);
+  }
+
+  .admin-actions{
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .last-updated{
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+    font-style: italic;
+    opacity: 0.75;
+    margin: 4px 0 0;
+  }
+
   @media (max-width: 480px){
     header.top{ flex-direction: column; }
     .admin-add.cols-2{ grid-template-columns: 1fr; }
@@ -388,14 +437,21 @@
       </div>
       <p class="subtitle">Quién lleva cada personaje ahora mismo, cuáles están reservados y cuáles andamos buscando bajo la luna.</p>
     </div>
-    <button class="admin-toggle" id="adminToggleBtn">Acceso admin</button>
+    <div class="admin-actions">
+      <button class="admin-toggle" id="exportBtn" hidden>Copiar para WhatsApp</button>
+      <button class="admin-toggle" id="adminToggleBtn">Acceso admin</button>
+    </div>
   </header>
+
+  <div class="search-wrap">
+    <input type="text" id="searchInput" placeholder="Buscar un personaje..." autocomplete="off">
+  </div>
 
   <section class="panel">
     <h2>Ocupados</h2>
     <p class="panel-desc">Ya están en manos de alguien del equipo.</p>
     <ul class="simple-list" id="ocupadosList"></ul>
-    <p class="empty-note" id="ocupadosEmpty" hidden>Nadie tiene un personaje ocupado todavía.</p>
+    <p class="empty-note" id="ocupadosEmpty" hidden>La noche está tranquila — nadie tiene personaje ocupado todavía.</p>
 
     <div class="admin-add cols-1" id="ocupadoAdminForm" hidden>
       <div class="full">
@@ -410,7 +466,7 @@
     <h2>Reservados</h2>
     <p class="panel-desc">Apartados para alguien, sin más detalle público.</p>
     <ul class="simple-list" id="reservadosList"></ul>
-    <p class="empty-note" id="reservadosEmpty" hidden>No hay personajes reservados ahora mismo.</p>
+    <p class="empty-note" id="reservadosEmpty" hidden>Ninguna reserva en pie por ahora.</p>
 
     <div class="admin-add cols-1" id="reservadoAdminForm" hidden>
       <div class="full">
@@ -425,7 +481,7 @@
     <h2>Buscados</h2>
     <p class="panel-desc">Si buscas un personaje, díselo a un admin para que lo añada aquí.</p>
     <ul class="simple-list" id="buscadosList"></ul>
-    <p class="empty-note" id="buscadosEmpty" hidden>Nadie está buscando personaje ahora mismo.</p>
+    <p class="empty-note" id="buscadosEmpty" hidden>Nadie anda buscando personaje por ahora.</p>
 
     <div class="admin-add cols-2" id="buscadoAdminForm" hidden>
       <div>
@@ -449,6 +505,7 @@
   </section>
 
   <footer class="status" id="statusLine"></footer>
+  <p class="last-updated" id="lastUpdated"></p>
 </div>
 
 <dialog id="loginDialog">
@@ -556,6 +613,7 @@
     $('ocupadoAdminForm').hidden = !isAdmin;
     $('reservadoAdminForm').hidden = !isAdmin;
     $('buscadoAdminForm').hidden = !isAdmin;
+    $('exportBtn').hidden = !isAdmin;
     paintOcupados();
     paintReservados();
     paintBuscados();
@@ -567,6 +625,41 @@
     }[m]));
   }
 
+  function normalize(str){
+    return String(str ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  let searchTerm = '';
+  const searchInput = $('searchInput');
+  searchInput.addEventListener('input', () => {
+    searchTerm = normalize(searchInput.value.trim());
+    paintOcupados();
+    paintReservados();
+    paintBuscados();
+  });
+
+  // ---------- Sello de última actualización + datos para exportar ----------
+  const allCaches = { ocupados: [], reservados: [], buscados: [] };
+  const lastUpdatedEl = $('lastUpdated');
+
+  function updateLastUpdated(){
+    let maxDate = null;
+    Object.values(allCaches).flat().forEach(item => {
+      if (item.createdAt && typeof item.createdAt.toDate === 'function'){
+        const d = item.createdAt.toDate();
+        if (!maxDate || d > maxDate) maxDate = d;
+      }
+    });
+    if (maxDate){
+      const fecha = maxDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+      const hora = maxDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      lastUpdatedEl.textContent = `Diario actualizado por última vez el ${fecha} a las ${hora}`;
+    }
+  }
+
   function makeDeleteBtn(collectionName, id){
     const btn = document.createElement('button');
     btn.className = 'icon-btn';
@@ -576,7 +669,7 @@
   }
 
   // ---------- Genérico: lista simple (ocupados / reservados) ----------
-  function setupSimpleList(collectionName, listEl, emptyEl){
+  function setupSimpleList(collectionName, listEl, emptyEl, emptyText){
     let cache = [];
     onSnapshot(query(collection(db, collectionName), orderBy('createdAt', 'asc')),
       (snap) => { cache = snap.docs.map(d => ({ id: d.id, ...d.data() })); paint(); },
@@ -584,8 +677,23 @@
     );
     function paint(){
       listEl.innerHTML = '';
-      emptyEl.hidden = cache.length !== 0;
-      cache.forEach(item => {
+      allCaches[collectionName] = cache;
+      updateLastUpdated();
+      const filtered = searchTerm
+        ? cache.filter(item => normalize(item.nombre).includes(searchTerm))
+        : cache;
+
+      if (cache.length === 0){
+        emptyEl.hidden = false;
+        emptyEl.textContent = emptyText;
+      } else if (filtered.length === 0){
+        emptyEl.hidden = false;
+        emptyEl.textContent = 'Ningún personaje coincide con tu búsqueda.';
+      } else {
+        emptyEl.hidden = true;
+      }
+
+      filtered.forEach(item => {
         const li = document.createElement('li');
         const span = document.createElement('span');
         span.className = 'li-name';
@@ -598,24 +706,28 @@
     return { paint };
   }
 
-  const ocupadosCtl = setupSimpleList('ocupados', $('ocupadosList'), $('ocupadosEmpty'));
-  const reservadosCtl = setupSimpleList('reservados', $('reservadosList'), $('reservadosEmpty'));
+  const ocupadosCtl = setupSimpleList('ocupados', $('ocupadosList'), $('ocupadosEmpty'), 'La noche está tranquila — nadie tiene personaje ocupado todavía.');
+  const reservadosCtl = setupSimpleList('reservados', $('reservadosList'), $('reservadosEmpty'), 'Ninguna reserva en pie por ahora.');
   function paintOcupados(){ ocupadosCtl.paint(); }
   function paintReservados(){ reservadosCtl.paint(); }
 
-  $('ocAddBtn').addEventListener('click', async () => {
+  async function addOcupado(){
     const nombre = $('ocNombre').value.trim();
     if (!nombre) return;
     await addDoc(collection(db, 'ocupados'), { nombre, createdAt: serverTimestamp() });
     $('ocNombre').value = '';
-  });
+  }
+  $('ocAddBtn').addEventListener('click', addOcupado);
+  $('ocNombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addOcupado(); } });
 
-  $('rAddBtn').addEventListener('click', async () => {
+  async function addReservado(){
     const nombre = $('rNombre').value.trim();
     if (!nombre) return;
     await addDoc(collection(db, 'reservados'), { nombre, createdAt: serverTimestamp() });
     $('rNombre').value = '';
-  });
+  }
+  $('rAddBtn').addEventListener('click', addReservado);
+  $('rNombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addReservado(); } });
 
   // ---------- Buscados (con quién y para qué) ----------
   const buscadosList = $('buscadosList');
@@ -636,8 +748,27 @@
 
   function paintBuscados(){
     buscadosList.innerHTML = '';
-    buscadosEmpty.hidden = buscadosCache.length !== 0;
-    buscadosCache.forEach(r => {
+    allCaches.buscados = buscadosCache;
+    updateLastUpdated();
+    const filtered = searchTerm
+      ? buscadosCache.filter(r =>
+          normalize(r.nombre).includes(searchTerm) ||
+          normalize(r.pedidoPor).includes(searchTerm) ||
+          normalize(r.motivo).includes(searchTerm)
+        )
+      : buscadosCache;
+
+    if (buscadosCache.length === 0){
+      buscadosEmpty.hidden = false;
+      buscadosEmpty.textContent = 'Nadie anda buscando personaje por ahora.';
+    } else if (filtered.length === 0){
+      buscadosEmpty.hidden = false;
+      buscadosEmpty.textContent = 'Ningún personaje coincide con tu búsqueda.';
+    } else {
+      buscadosEmpty.hidden = true;
+    }
+
+    filtered.forEach(r => {
       const li = document.createElement('li');
       const fechaTxt = isAdmin && r.fecha ? formatFecha(r.fecha) : null;
       li.innerHTML = `
@@ -652,7 +783,7 @@
     });
   }
 
-  $('bAddBtn').addEventListener('click', async () => {
+  async function addBuscado(){
     const nombre = $('bNombre').value.trim();
     const pedidoPor = $('bPedidoPor').value.trim();
     const motivo = $('bMotivo').value.trim();
@@ -668,6 +799,43 @@
     } finally {
       btn.disabled = false;
     }
+  }
+  $('bAddBtn').addEventListener('click', addBuscado);
+  ['bNombre', 'bPedidoPor', 'bMotivo', 'bFecha'].forEach(id => {
+    $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addBuscado(); } });
+  });
+
+  // ---------- Exportar a WhatsApp (solo admin, sin la fecha admin-only) ----------
+  function generateWhatsAppText(){
+    const lines = ['*Moonlight Team* 🌙', ''];
+
+    lines.push('*Ocupados*');
+    if (!allCaches.ocupados.length) lines.push('_(nadie)_');
+    else allCaches.ocupados.forEach(c => lines.push('- ' + c.nombre));
+    lines.push('');
+
+    lines.push('*Reservados*');
+    if (!allCaches.reservados.length) lines.push('_(nadie)_');
+    else allCaches.reservados.forEach(c => lines.push('- ' + c.nombre));
+    lines.push('');
+
+    lines.push('*Buscados*');
+    if (!allCaches.buscados.length) lines.push('_(nadie)_');
+    else allCaches.buscados.forEach(r => lines.push(`- ${r.nombre} — pide ${r.pedidoPor} (${r.motivo})`));
+
+    return lines.join('\n');
+  }
+
+  $('exportBtn').addEventListener('click', async () => {
+    const btn = $('exportBtn');
+    const original = btn.textContent;
+    try {
+      await navigator.clipboard.writeText(generateWhatsAppText());
+      btn.textContent = '¡Copiado!';
+    } catch (e) {
+      btn.textContent = 'No se pudo copiar';
+    }
+    setTimeout(() => { btn.textContent = original; }, 2000);
   });
 </script>
 
