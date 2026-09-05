@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png">
 <title>Moonlight Team</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -278,7 +277,23 @@
     justify-content: space-between;
     align-items: center;
     gap: 12px;
+    transition: background .15s ease, opacity .15s ease;
   }
+  ul.simple-list li.dragging{
+    opacity: 0.55;
+    background: rgba(255,255,255,0.09);
+  }
+
+  .li-left{ display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+
+  .handle{
+    color: var(--gold-dim);
+    user-select: none;
+    flex-shrink: 0;
+    line-height: 1.5;
+  }
+  .handle.draggable{ cursor: grab; touch-action: none; }
+  .handle.draggable:active{ cursor: grabbing; }
 
   .li-name{ font-weight: 600; color: var(--ink); }
   .li-meta{ color: var(--ink-soft); font-size: 0.9rem; margin-top: 2px; }
@@ -390,11 +405,6 @@
     border-radius: 6px;
   }
   ::-webkit-scrollbar-thumb:hover{ background: var(--gold); }
-
-  .li-name::before{
-    content: '✦ ';
-    color: var(--gold-dim);
-  }
 
   .admin-actions{
     display: flex;
@@ -531,7 +541,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getFirestore, collection, addDoc, deleteDoc, doc,
+    getFirestore, collection, addDoc, deleteDoc, doc, updateDoc,
     onSnapshot, query, orderBy, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import {
@@ -669,20 +679,116 @@
     return btn;
   }
 
+  function orderComparator(a, b){
+    const av = typeof a.orden === 'number' ? a.orden : Infinity;
+    const bv = typeof b.orden === 'number' ? b.orden : Infinity;
+    if (av !== bv) return av - bv;
+    const at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+    const bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+    return at - bt;
+  }
+
+  function nextOrden(cache){
+    if (!cache.length) return 1000;
+    const max = Math.max(...cache.map(i => typeof i.orden === 'number' ? i.orden : 0));
+    return max + 1000;
+  }
+
+  function backfillOrden(collectionName, cache){
+    const missing = cache.filter(i => typeof i.orden !== 'number');
+    if (!missing.length) return;
+    const byCreated = [...cache].sort((a, b) => {
+      const at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return at - bt;
+    });
+    byCreated.forEach((item, idx) => {
+      if (typeof item.orden !== 'number'){
+        updateDoc(doc(db, collectionName, item.id), { orden: (idx + 1) * 1000 }).catch(() => {});
+      }
+    });
+  }
+
+  // Arrastrar y soltar para reordenar (asa = el rombo ✦), vía Pointer Events (funciona con ratón y con el dedo)
+  function enableDragReorder(listEl, collectionName, getCache){
+    listEl.addEventListener('pointerdown', (e) => {
+      const handle = e.target.closest('.handle');
+      if (!handle || !handle.classList.contains('draggable')) return;
+      const li = handle.closest('li');
+      if (!li) return;
+      e.preventDefault();
+      li.classList.add('dragging');
+
+      const onMove = (ev) => {
+        const y = ev.clientY;
+        const siblings = [...listEl.querySelectorAll('li:not(.dragging)')];
+        let target = null;
+        for (const sib of siblings){
+          const rect = sib.getBoundingClientRect();
+          if (y < rect.top + rect.height / 2){ target = sib; break; }
+        }
+        if (target) listEl.insertBefore(li, target);
+        else listEl.appendChild(li);
+      };
+
+      const onUp = async () => {
+        li.classList.remove('dragging');
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+
+        const ids = [...listEl.querySelectorAll('li')].map(x => x.dataset.id);
+        const cache = getCache();
+        const movedId = li.dataset.id;
+        const newIndex = ids.indexOf(movedId);
+        const prevItem = cache.find(i => i.id === ids[newIndex - 1]);
+        const nextItem = cache.find(i => i.id === ids[newIndex + 1]);
+        const prevOrden = prevItem && typeof prevItem.orden === 'number' ? prevItem.orden : null;
+        const nextOrdenVal = nextItem && typeof nextItem.orden === 'number' ? nextItem.orden : null;
+
+        let newOrden;
+        if (prevOrden == null && nextOrdenVal == null) newOrden = 1000;
+        else if (prevOrden == null) newOrden = nextOrdenVal - 1000;
+        else if (nextOrdenVal == null) newOrden = prevOrden + 1000;
+        else newOrden = (prevOrden + nextOrdenVal) / 2;
+
+        try {
+          await updateDoc(doc(db, collectionName, movedId), { orden: newOrden });
+        } catch (e) {
+          statusLine.textContent = 'No se pudo guardar el nuevo orden.';
+        }
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  }
+
+  function makeHandle(){
+    const h = document.createElement('span');
+    h.className = 'handle' + (isAdmin && !searchTerm ? ' draggable' : '');
+    h.textContent = '✦';
+    return h;
+  }
+
   // ---------- Genérico: lista simple (ocupados / reservados) ----------
   function setupSimpleList(collectionName, listEl, emptyEl, emptyText){
     let cache = [];
     onSnapshot(query(collection(db, collectionName), orderBy('createdAt', 'asc')),
-      (snap) => { cache = snap.docs.map(d => ({ id: d.id, ...d.data() })); paint(); },
+      (snap) => {
+        cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        backfillOrden(collectionName, cache);
+        paint();
+      },
       () => { statusLine.textContent = 'No se pudo conectar con la base de datos.'; }
     );
     function paint(){
       listEl.innerHTML = '';
       allCaches[collectionName] = cache;
       updateLastUpdated();
+      const sorted = [...cache].sort(orderComparator);
       const filtered = searchTerm
-        ? cache.filter(item => normalize(item.nombre).includes(searchTerm))
-        : cache;
+        ? sorted.filter(item => normalize(item.nombre).includes(searchTerm))
+        : sorted;
 
       if (cache.length === 0){
         emptyEl.hidden = false;
@@ -696,15 +802,21 @@
 
       filtered.forEach(item => {
         const li = document.createElement('li');
+        li.dataset.id = item.id;
+        const left = document.createElement('span');
+        left.className = 'li-left';
+        left.appendChild(makeHandle());
         const span = document.createElement('span');
         span.className = 'li-name';
         span.textContent = item.nombre;
-        li.appendChild(span);
+        left.appendChild(span);
+        li.appendChild(left);
         if (isAdmin) li.appendChild(makeDeleteBtn(collectionName, item.id));
         listEl.appendChild(li);
       });
     }
-    return { paint };
+    enableDragReorder(listEl, collectionName, () => cache);
+    return { paint, getCache: () => cache };
   }
 
   const ocupadosCtl = setupSimpleList('ocupados', $('ocupadosList'), $('ocupadosEmpty'), 'La noche está tranquila — nadie tiene personaje ocupado todavía.');
@@ -715,7 +827,7 @@
   async function addOcupado(){
     const nombre = $('ocNombre').value.trim();
     if (!nombre) return;
-    await addDoc(collection(db, 'ocupados'), { nombre, createdAt: serverTimestamp() });
+    await addDoc(collection(db, 'ocupados'), { nombre, orden: nextOrden(ocupadosCtl.getCache()), createdAt: serverTimestamp() });
     $('ocNombre').value = '';
   }
   $('ocAddBtn').addEventListener('click', addOcupado);
@@ -724,7 +836,7 @@
   async function addReservado(){
     const nombre = $('rNombre').value.trim();
     if (!nombre) return;
-    await addDoc(collection(db, 'reservados'), { nombre, createdAt: serverTimestamp() });
+    await addDoc(collection(db, 'reservados'), { nombre, orden: nextOrden(reservadosCtl.getCache()), createdAt: serverTimestamp() });
     $('rNombre').value = '';
   }
   $('rAddBtn').addEventListener('click', addReservado);
@@ -736,9 +848,14 @@
   let buscadosCache = [];
 
   onSnapshot(query(collection(db, 'buscados'), orderBy('createdAt', 'asc')),
-    (snap) => { buscadosCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); paintBuscados(); },
+    (snap) => {
+      buscadosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      backfillOrden('buscados', buscadosCache);
+      paintBuscados();
+    },
     () => { statusLine.textContent = 'No se pudo conectar con la base de datos.'; }
   );
+  enableDragReorder(buscadosList, 'buscados', () => buscadosCache);
 
   function formatFecha(fecha){
     if (!fecha) return null;
@@ -751,13 +868,14 @@
     buscadosList.innerHTML = '';
     allCaches.buscados = buscadosCache;
     updateLastUpdated();
+    const sorted = [...buscadosCache].sort(orderComparator);
     const filtered = searchTerm
-      ? buscadosCache.filter(r =>
+      ? sorted.filter(r =>
           normalize(r.nombre).includes(searchTerm) ||
           normalize(r.pedidoPor).includes(searchTerm) ||
           normalize(r.motivo).includes(searchTerm)
         )
-      : buscadosCache;
+      : sorted;
 
     if (buscadosCache.length === 0){
       buscadosEmpty.hidden = false;
@@ -771,14 +889,19 @@
 
     filtered.forEach(r => {
       const li = document.createElement('li');
+      li.dataset.id = r.id;
       const fechaTxt = isAdmin && r.fecha ? formatFecha(r.fecha) : null;
-      li.innerHTML = `
-        <div>
-          <div class="li-name">${escapeHtml(r.nombre)}</div>
-          <div class="li-meta">Lo pide <b>${escapeHtml(r.pedidoPor)}</b> — ${escapeHtml(r.motivo)}</div>
-          ${fechaTxt ? `<div class="li-meta li-admin-only">Solicitado el ${escapeHtml(fechaTxt)}</div>` : ''}
-        </div>
+      const content = document.createElement('div');
+      content.className = 'li-left';
+      content.appendChild(makeHandle());
+      const textWrap = document.createElement('div');
+      textWrap.innerHTML = `
+        <div class="li-name">${escapeHtml(r.nombre)}</div>
+        <div class="li-meta">Lo pide <b>${escapeHtml(r.pedidoPor)}</b> — ${escapeHtml(r.motivo)}</div>
+        ${fechaTxt ? `<div class="li-meta li-admin-only">Solicitado el ${escapeHtml(fechaTxt)}</div>` : ''}
       `;
+      content.appendChild(textWrap);
+      li.appendChild(content);
       if (isAdmin) li.appendChild(makeDeleteBtn('buscados', r.id));
       buscadosList.appendChild(li);
     });
@@ -793,7 +916,7 @@
     const btn = $('bAddBtn');
     btn.disabled = true;
     try {
-      await addDoc(collection(db, 'buscados'), { nombre, pedidoPor, motivo, fecha: fecha || null, createdAt: serverTimestamp() });
+      await addDoc(collection(db, 'buscados'), { nombre, pedidoPor, motivo, fecha: fecha || null, orden: nextOrden(buscadosCache), createdAt: serverTimestamp() });
       $('bNombre').value = ''; $('bPedidoPor').value = ''; $('bMotivo').value = ''; $('bFecha').value = '';
     } catch (e) {
       statusLine.textContent = 'No se pudo añadir, inténtalo de nuevo.';
