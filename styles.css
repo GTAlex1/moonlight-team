@@ -412,6 +412,92 @@
     margin: 4px 0 0;
   }
 
+  .back-link{
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-style: italic;
+    margin-bottom: 18px;
+    border-bottom: 1px solid transparent;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .back-link:hover{ color: var(--gold); border-color: var(--gold-dim); }
+
+  .nav-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+
+  .nav-card{
+    display: block;
+    background: var(--paper);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px 22px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+  }
+  .nav-card:hover{
+    border-color: var(--gold-dim);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px -20px rgba(0,0,0,0.6);
+  }
+
+  .nav-card .nav-title{
+    font-family: 'Cormorant', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 1.35rem;
+    color: var(--gold);
+    margin: 0 0 6px;
+  }
+  .nav-card .nav-desc{
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+    margin: 0;
+  }
+  .nav-card.is-private .nav-title::after{
+    content: ' ✦';
+    color: var(--gold-dim);
+    font-size: 0.9rem;
+  }
+
+  .nav-card-wrap{ position: relative; }
+
+  .eye-toggle{
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--ink-soft);
+    cursor: pointer;
+    z-index: 2;
+    padding: 0;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .eye-toggle:hover{ border-color: var(--gold-dim); color: var(--gold); }
+  .eye-toggle[disabled]{ opacity: 0.5; cursor: default; }
+
+  .nav-empty-admin{
+    color: var(--ink-soft);
+    font-style: italic;
+    font-size: 0.92rem;
+  }
+
   @media (max-width: 480px){
     header.top{ flex-direction: column; }
     .admin-add.cols-2{ grid-template-columns: 1fr; }

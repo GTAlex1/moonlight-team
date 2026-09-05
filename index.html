@@ -26,77 +26,12 @@
       <div class="title-wrap">
         <h1>Moonlight Team</h1>
       </div>
-      <p class="subtitle">Quién lleva cada personaje ahora mismo, cuáles están reservados y cuáles andamos buscando bajo la luna.</p>
+      <p class="subtitle">Elige a dónde quieres ir.</p>
     </div>
-    <div class="admin-actions">
-      <button class="admin-toggle" id="exportBtn" hidden>Copiar para WhatsApp</button>
-      <button class="admin-toggle" id="adminToggleBtn">Acceso admin</button>
-    </div>
+    <button class="admin-toggle" id="adminToggleBtn">Acceso admin</button>
   </header>
 
-  <div class="search-wrap">
-    <input type="text" id="searchInput" placeholder="Buscar un personaje..." autocomplete="off">
-  </div>
-
-  <section class="panel">
-    <h2>Ocupados</h2>
-    <p class="panel-desc">Ya están en manos de alguien del equipo.</p>
-    <ul class="simple-list" id="ocupadosList"></ul>
-    <p class="empty-note" id="ocupadosEmpty" hidden>La noche está tranquila — nadie tiene personaje ocupado todavía.</p>
-
-    <div class="admin-add cols-1" id="ocupadoAdminForm" hidden>
-      <div class="full">
-        <label for="ocNombre">Personaje</label>
-        <input id="ocNombre" type="text" maxlength="40" placeholder="Beidou">
-      </div>
-      <button class="submit-btn" id="ocAddBtn" type="button">Añadir a ocupados</button>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>Reservados</h2>
-    <p class="panel-desc">Apartados para alguien, sin más detalle público.</p>
-    <ul class="simple-list" id="reservadosList"></ul>
-    <p class="empty-note" id="reservadosEmpty" hidden>Ninguna reserva en pie por ahora.</p>
-
-    <div class="admin-add cols-1" id="reservadoAdminForm" hidden>
-      <div class="full">
-        <label for="rNombre">Personaje</label>
-        <input id="rNombre" type="text" maxlength="40" placeholder="Beidou">
-      </div>
-      <button class="submit-btn" id="rAddBtn" type="button">Añadir a reservados</button>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>Buscados</h2>
-    <p class="panel-desc">Si buscas un personaje, díselo a un admin para que lo añada aquí.</p>
-    <ul class="simple-list" id="buscadosList"></ul>
-    <p class="empty-note" id="buscadosEmpty" hidden>Nadie anda buscando personaje por ahora.</p>
-
-    <div class="admin-add cols-2" id="buscadoAdminForm" hidden>
-      <div>
-        <label for="bNombre">Personaje</label>
-        <input id="bNombre" type="text" maxlength="40" placeholder="Beidou">
-      </div>
-      <div>
-        <label for="bPedidoPor">Lo pide</label>
-        <input id="bPedidoPor" type="text" maxlength="40" placeholder="Nombre">
-      </div>
-      <div class="full">
-        <label for="bMotivo">Para qué lo busca</label>
-        <input id="bMotivo" type="text" maxlength="80" placeholder="Ej: pareja, equipo de co-op, sub DPS...">
-      </div>
-      <div class="full">
-        <label for="bFecha">Fecha solicitada (solo visible para admins)</label>
-        <input id="bFecha" type="date">
-      </div>
-      <button class="submit-btn" id="bAddBtn" type="button">Añadir a buscados</button>
-    </div>
-  </section>
-
-  <footer class="status" id="statusLine"></footer>
-  <p class="last-updated" id="lastUpdated"></p>
+  <div class="nav-grid" id="navGrid"></div>
 </div>
 
 <dialog id="loginDialog">
@@ -121,8 +56,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getFirestore, collection, addDoc, deleteDoc, doc, updateDoc,
-    onSnapshot, query, orderBy, serverTimestamp
+    getFirestore, collection, doc, setDoc, onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import {
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
@@ -140,10 +74,11 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
   const auth = getAuth(app);
+  const $ = (id) => document.getElementById(id);
 
   // ---------- Campo de estrellas ----------
   (function paintStars(){
-    const layer = document.getElementById('starsLayer');
+    const layer = $('starsLayer');
     const count = window.innerWidth < 480 ? 26 : 42;
     const frag = document.createDocumentFragment();
     for (let i = 0; i < count; i++){
@@ -163,16 +98,113 @@
     layer.appendChild(frag);
   })();
 
-  let isAdmin = false;
-  const $ = (id) => document.getElementById(id);
+  function escapeHtml(str){
+    return String(str ?? '').replace(/[&<>"']/g, (m) => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[m]));
+  }
 
-  // ---------- Admin login ----------
+  const EYE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+  const EYE_OFF_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+
+  function guessTitle(filename){
+    const base = filename.replace(/\.html?$/i, '').replace(/[-_]+/g, ' ');
+    return base.replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // ---------- Detectar owner/repo de GitHub Pages a partir de la URL ----------
+  function detectRepo(){
+    const host = location.hostname;
+    if (!host.endsWith('.github.io')) return null;
+    const owner = host.split('.')[0];
+    const parts = location.pathname.split('/').filter(Boolean);
+    let repo = host; // páginas de usuario: el repo se llama igual que el dominio
+    if (parts.length && !parts[0].includes('.')) repo = parts[0]; // páginas de proyecto
+    return { owner, repo };
+  }
+
+  async function discoverHtmlFiles(){
+    const info = detectRepo();
+    if (!info) throw new Error('No se pudo detectar el repositorio');
+    const res = await fetch(`https://api.github.com/repos/${info.owner}/${info.repo}/contents/`);
+    if (!res.ok) throw new Error('La API de GitHub respondió con error ' + res.status);
+    const data = await res.json();
+    return data
+      .filter(item => item.type === 'file' && /\.html?$/i.test(item.name) && item.name.toLowerCase() !== 'index.html')
+      .map(item => item.name)
+      .sort();
+  }
+
+  // ---------- Estado y render del índice ----------
+  const navGrid = $('navGrid');
+  let discoveredFiles = null; // null = aún cargando
+  let overrides = {};         // { 'archivo.html': { private: true/false } }
+  let isAdmin = false;
+
+  function renderNav(){
+    if (discoveredFiles === null){
+      navGrid.innerHTML = '<p class="nav-empty-admin">Buscando páginas…</p>';
+      return;
+    }
+    if (discoveredFiles.length === 0){
+      navGrid.innerHTML = '<p class="nav-empty-admin">No se encontró ninguna página.</p>';
+      return;
+    }
+
+    const pages = discoveredFiles.map(filename => ({
+      filename,
+      title: guessTitle(filename),
+      private: overrides[filename]?.private === true
+    }));
+    const visible = pages.filter(p => !p.private || isAdmin);
+
+    navGrid.innerHTML = '';
+    visible.forEach(p => {
+      const wrap = document.createElement('div');
+      wrap.className = 'nav-card-wrap';
+
+      const a = document.createElement('a');
+      a.className = 'nav-card' + (p.private ? ' is-private' : '');
+      a.href = p.filename;
+      a.innerHTML = `<div class="nav-title">${escapeHtml(p.title)}</div><p class="nav-desc">${escapeHtml(p.filename)}</p>`;
+      wrap.appendChild(a);
+
+      if (isAdmin){
+        const eyeBtn = document.createElement('button');
+        eyeBtn.className = 'eye-toggle';
+        eyeBtn.title = p.private ? 'Oculta para el resto — pulsa para hacerla visible' : 'Visible para todos — pulsa para ocultarla';
+        eyeBtn.innerHTML = p.private ? EYE_OFF_SVG : EYE_SVG;
+        eyeBtn.addEventListener('click', async () => {
+          eyeBtn.disabled = true;
+          try {
+            await setDoc(doc(db, 'paginas', p.filename), { private: !p.private }, { merge: true });
+          } finally {
+            eyeBtn.disabled = false;
+          }
+        });
+        wrap.appendChild(eyeBtn);
+      }
+
+      navGrid.appendChild(wrap);
+    });
+  }
+
+  discoverHtmlFiles()
+    .then(files => { discoveredFiles = files; renderNav(); })
+    .catch(() => { discoveredFiles = ['lista.html']; renderNav(); });
+
+  onSnapshot(collection(db, 'paginas'), (snap) => {
+    overrides = {};
+    snap.docs.forEach(d => { overrides[d.id] = d.data(); });
+    renderNav();
+  });
+
+  // ---------- Admin login (misma cuenta que en el resto de páginas) ----------
   const adminToggleBtn = $('adminToggleBtn');
   const loginDialog = $('loginDialog');
   const loginEmail = $('loginEmail');
   const loginPass = $('loginPass');
   const loginError = $('loginError');
-  const statusLine = $('statusLine');
 
   adminToggleBtn.addEventListener('click', () => {
     if (isAdmin) {
@@ -201,345 +233,7 @@
     isAdmin = !!user;
     adminToggleBtn.textContent = isAdmin ? 'Salir del modo admin' : 'Acceso admin';
     adminToggleBtn.classList.toggle('is-admin', isAdmin);
-    $('ocupadoAdminForm').hidden = !isAdmin;
-    $('reservadoAdminForm').hidden = !isAdmin;
-    $('buscadoAdminForm').hidden = !isAdmin;
-    $('exportBtn').hidden = !isAdmin;
-    paintOcupados();
-    paintReservados();
-    paintBuscados();
-  });
-
-  function escapeHtml(str){
-    return String(str ?? '').replace(/[&<>"']/g, (m) => ({
-      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
-    }[m]));
-  }
-
-  function normalize(str){
-    return String(str ?? '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-  }
-
-  let searchTerm = '';
-  const searchInput = $('searchInput');
-  searchInput.addEventListener('input', () => {
-    searchTerm = normalize(searchInput.value.trim());
-    paintOcupados();
-    paintReservados();
-    paintBuscados();
-  });
-
-  // ---------- Sello de última actualización + datos para exportar ----------
-  const allCaches = { ocupados: [], reservados: [], buscados: [] };
-  const lastUpdatedEl = $('lastUpdated');
-
-  function updateLastUpdated(){
-    let maxDate = null;
-    Object.values(allCaches).flat().forEach(item => {
-      if (item.createdAt && typeof item.createdAt.toDate === 'function'){
-        const d = item.createdAt.toDate();
-        if (!maxDate || d > maxDate) maxDate = d;
-      }
-    });
-    if (maxDate){
-      const fecha = maxDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-      const hora = maxDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      lastUpdatedEl.textContent = `Diario actualizado por última vez el ${fecha} a las ${hora}`;
-    }
-  }
-
-  function makeDeleteBtn(collectionName, id){
-    const btn = document.createElement('button');
-    btn.className = 'icon-btn';
-    btn.textContent = 'Quitar';
-    btn.addEventListener('click', () => deleteDoc(doc(db, collectionName, id)));
-    return btn;
-  }
-
-  function orderComparator(a, b){
-    const av = typeof a.orden === 'number' ? a.orden : Infinity;
-    const bv = typeof b.orden === 'number' ? b.orden : Infinity;
-    if (av !== bv) return av - bv;
-    const at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
-    const bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
-    return at - bt;
-  }
-
-  function nextOrden(cache){
-    if (!cache.length) return 1000;
-    const max = Math.max(...cache.map(i => typeof i.orden === 'number' ? i.orden : 0));
-    return max + 1000;
-  }
-
-  function backfillOrden(collectionName, cache){
-    const missing = cache.filter(i => typeof i.orden !== 'number');
-    if (!missing.length) return;
-    const byCreated = [...cache].sort((a, b) => {
-      const at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
-      const bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
-      return at - bt;
-    });
-    byCreated.forEach((item, idx) => {
-      if (typeof item.orden !== 'number'){
-        updateDoc(doc(db, collectionName, item.id), { orden: (idx + 1) * 1000 }).catch(() => {});
-      }
-    });
-  }
-
-  // Arrastrar y soltar para reordenar (asa = el rombo ✦), vía Pointer Events (funciona con ratón y con el dedo)
-  function enableDragReorder(listEl, collectionName, getCache){
-    listEl.addEventListener('pointerdown', (e) => {
-      const handle = e.target.closest('.handle');
-      if (!handle || !handle.classList.contains('draggable')) return;
-      const li = handle.closest('li');
-      if (!li) return;
-      e.preventDefault();
-      li.classList.add('dragging');
-
-      const onMove = (ev) => {
-        const y = ev.clientY;
-        const siblings = [...listEl.querySelectorAll('li:not(.dragging)')];
-        let target = null;
-        for (const sib of siblings){
-          const rect = sib.getBoundingClientRect();
-          if (y < rect.top + rect.height / 2){ target = sib; break; }
-        }
-        if (target) listEl.insertBefore(li, target);
-        else listEl.appendChild(li);
-      };
-
-      const onUp = async () => {
-        li.classList.remove('dragging');
-        document.removeEventListener('pointermove', onMove);
-        document.removeEventListener('pointerup', onUp);
-
-        const ids = [...listEl.querySelectorAll('li')].map(x => x.dataset.id);
-        const cache = getCache();
-        const movedId = li.dataset.id;
-        const newIndex = ids.indexOf(movedId);
-        const prevItem = cache.find(i => i.id === ids[newIndex - 1]);
-        const nextItem = cache.find(i => i.id === ids[newIndex + 1]);
-        const prevOrden = prevItem && typeof prevItem.orden === 'number' ? prevItem.orden : null;
-        const nextOrdenVal = nextItem && typeof nextItem.orden === 'number' ? nextItem.orden : null;
-
-        let newOrden;
-        if (prevOrden == null && nextOrdenVal == null) newOrden = 1000;
-        else if (prevOrden == null) newOrden = nextOrdenVal - 1000;
-        else if (nextOrdenVal == null) newOrden = prevOrden + 1000;
-        else newOrden = (prevOrden + nextOrdenVal) / 2;
-
-        try {
-          await updateDoc(doc(db, collectionName, movedId), { orden: newOrden });
-        } catch (e) {
-          statusLine.textContent = 'No se pudo guardar el nuevo orden.';
-        }
-      };
-
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
-    });
-  }
-
-  function makeHandle(){
-    const h = document.createElement('span');
-    h.className = 'handle' + (isAdmin && !searchTerm ? ' draggable' : '');
-    h.textContent = '✦';
-    return h;
-  }
-
-  // ---------- Genérico: lista simple (ocupados / reservados) ----------
-  function setupSimpleList(collectionName, listEl, emptyEl, emptyText){
-    let cache = [];
-    onSnapshot(query(collection(db, collectionName), orderBy('createdAt', 'asc')),
-      (snap) => {
-        cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        backfillOrden(collectionName, cache);
-        paint();
-      },
-      () => { statusLine.textContent = 'No se pudo conectar con la base de datos.'; }
-    );
-    function paint(){
-      listEl.innerHTML = '';
-      allCaches[collectionName] = cache;
-      updateLastUpdated();
-      const sorted = [...cache].sort(orderComparator);
-      const filtered = searchTerm
-        ? sorted.filter(item => normalize(item.nombre).includes(searchTerm))
-        : sorted;
-
-      if (cache.length === 0){
-        emptyEl.hidden = false;
-        emptyEl.textContent = emptyText;
-      } else if (filtered.length === 0){
-        emptyEl.hidden = false;
-        emptyEl.textContent = 'Ningún personaje coincide con tu búsqueda.';
-      } else {
-        emptyEl.hidden = true;
-      }
-
-      filtered.forEach(item => {
-        const li = document.createElement('li');
-        li.dataset.id = item.id;
-        const left = document.createElement('span');
-        left.className = 'li-left';
-        left.appendChild(makeHandle());
-        const span = document.createElement('span');
-        span.className = 'li-name';
-        span.textContent = item.nombre;
-        left.appendChild(span);
-        li.appendChild(left);
-        if (isAdmin) li.appendChild(makeDeleteBtn(collectionName, item.id));
-        listEl.appendChild(li);
-      });
-    }
-    enableDragReorder(listEl, collectionName, () => cache);
-    return { paint, getCache: () => cache };
-  }
-
-  const ocupadosCtl = setupSimpleList('ocupados', $('ocupadosList'), $('ocupadosEmpty'), 'La noche está tranquila — nadie tiene personaje ocupado todavía.');
-  const reservadosCtl = setupSimpleList('reservados', $('reservadosList'), $('reservadosEmpty'), 'Ninguna reserva en pie por ahora.');
-  function paintOcupados(){ ocupadosCtl.paint(); }
-  function paintReservados(){ reservadosCtl.paint(); }
-
-  async function addOcupado(){
-    const nombre = $('ocNombre').value.trim();
-    if (!nombre) return;
-    await addDoc(collection(db, 'ocupados'), { nombre, orden: nextOrden(ocupadosCtl.getCache()), createdAt: serverTimestamp() });
-    $('ocNombre').value = '';
-  }
-  $('ocAddBtn').addEventListener('click', addOcupado);
-  $('ocNombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addOcupado(); } });
-
-  async function addReservado(){
-    const nombre = $('rNombre').value.trim();
-    if (!nombre) return;
-    await addDoc(collection(db, 'reservados'), { nombre, orden: nextOrden(reservadosCtl.getCache()), createdAt: serverTimestamp() });
-    $('rNombre').value = '';
-  }
-  $('rAddBtn').addEventListener('click', addReservado);
-  $('rNombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addReservado(); } });
-
-  // ---------- Buscados (con quién y para qué) ----------
-  const buscadosList = $('buscadosList');
-  const buscadosEmpty = $('buscadosEmpty');
-  let buscadosCache = [];
-
-  onSnapshot(query(collection(db, 'buscados'), orderBy('createdAt', 'asc')),
-    (snap) => {
-      buscadosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      backfillOrden('buscados', buscadosCache);
-      paintBuscados();
-    },
-    () => { statusLine.textContent = 'No se pudo conectar con la base de datos.'; }
-  );
-  enableDragReorder(buscadosList, 'buscados', () => buscadosCache);
-
-  function formatFecha(fecha){
-    if (!fecha) return null;
-    const [y, m, d] = fecha.split('-').map(Number);
-    const dt = new Date(y, m - 1, d);
-    return dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-  }
-
-  function paintBuscados(){
-    buscadosList.innerHTML = '';
-    allCaches.buscados = buscadosCache;
-    updateLastUpdated();
-    const sorted = [...buscadosCache].sort(orderComparator);
-    const filtered = searchTerm
-      ? sorted.filter(r =>
-          normalize(r.nombre).includes(searchTerm) ||
-          normalize(r.pedidoPor).includes(searchTerm) ||
-          normalize(r.motivo).includes(searchTerm)
-        )
-      : sorted;
-
-    if (buscadosCache.length === 0){
-      buscadosEmpty.hidden = false;
-      buscadosEmpty.textContent = 'Nadie anda buscando personaje por ahora.';
-    } else if (filtered.length === 0){
-      buscadosEmpty.hidden = false;
-      buscadosEmpty.textContent = 'Ningún personaje coincide con tu búsqueda.';
-    } else {
-      buscadosEmpty.hidden = true;
-    }
-
-    filtered.forEach(r => {
-      const li = document.createElement('li');
-      li.dataset.id = r.id;
-      const fechaTxt = isAdmin && r.fecha ? formatFecha(r.fecha) : null;
-      const content = document.createElement('div');
-      content.className = 'li-left';
-      content.appendChild(makeHandle());
-      const textWrap = document.createElement('div');
-      textWrap.innerHTML = `
-        <div class="li-name">${escapeHtml(r.nombre)}</div>
-        <div class="li-meta">Lo pide <b>${escapeHtml(r.pedidoPor)}</b> — ${escapeHtml(r.motivo)}</div>
-        ${fechaTxt ? `<div class="li-meta li-admin-only">Solicitado el ${escapeHtml(fechaTxt)}</div>` : ''}
-      `;
-      content.appendChild(textWrap);
-      li.appendChild(content);
-      if (isAdmin) li.appendChild(makeDeleteBtn('buscados', r.id));
-      buscadosList.appendChild(li);
-    });
-  }
-
-  async function addBuscado(){
-    const nombre = $('bNombre').value.trim();
-    const pedidoPor = $('bPedidoPor').value.trim();
-    const motivo = $('bMotivo').value.trim();
-    const fecha = $('bFecha').value;
-    if (!nombre || !pedidoPor || !motivo) return;
-    const btn = $('bAddBtn');
-    btn.disabled = true;
-    try {
-      await addDoc(collection(db, 'buscados'), { nombre, pedidoPor, motivo, fecha: fecha || null, orden: nextOrden(buscadosCache), createdAt: serverTimestamp() });
-      $('bNombre').value = ''; $('bPedidoPor').value = ''; $('bMotivo').value = ''; $('bFecha').value = '';
-    } catch (e) {
-      statusLine.textContent = 'No se pudo añadir, inténtalo de nuevo.';
-    } finally {
-      btn.disabled = false;
-    }
-  }
-  $('bAddBtn').addEventListener('click', addBuscado);
-  ['bNombre', 'bPedidoPor', 'bMotivo', 'bFecha'].forEach(id => {
-    $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addBuscado(); } });
-  });
-
-  // ---------- Exportar a WhatsApp (solo admin, sin la fecha admin-only) ----------
-  function generateWhatsAppText(){
-    const lines = ['*Moonlight Team* 🌙', ''];
-
-    lines.push('*Ocupados*');
-    if (!allCaches.ocupados.length) lines.push('_(nadie)_');
-    else allCaches.ocupados.forEach(c => lines.push('ᰔ ' + c.nombre));
-    lines.push('');
-
-    lines.push('*Reservados*');
-    if (!allCaches.reservados.length) lines.push('_(nadie)_');
-    else allCaches.reservados.forEach(c => lines.push('ᰔ ' + c.nombre));
-    lines.push('');
-
-    lines.push('*Buscados*');
-    if (!allCaches.buscados.length) lines.push('_(nadie)_');
-    else allCaches.buscados.forEach(r => lines.push(`ᰔ ${r.nombre} — pide ${r.pedidoPor} (${r.motivo})`));
-
-    return lines.join('\n');
-  }
-
-  $('exportBtn').addEventListener('click', async () => {
-    const btn = $('exportBtn');
-    const original = btn.textContent;
-    try {
-      await navigator.clipboard.writeText(generateWhatsAppText());
-      btn.textContent = '¡Copiado!';
-    } catch (e) {
-      btn.textContent = 'No se pudo copiar';
-    }
-    setTimeout(() => { btn.textContent = original; }, 2000);
+    renderNav();
   });
 </script>
 
