@@ -20,9 +20,6 @@
 <div class="shooting-star" style="--top:4%; --left:35%; --dur:19s; --delay:14s" aria-hidden="true"></div>
 <div class="welcome-comet" aria-hidden="true"></div>
 <div class="parallax-layer" id="parallaxLayer">
-  <div class="moon-rays" aria-hidden="true"></div>
-  <div class="flash" aria-hidden="true"></div>
-  <div class="burst" id="burstLayer" aria-hidden="true"></div>
   <div class="moon" aria-hidden="true"></div>
 </div>
 
@@ -30,7 +27,7 @@
   <header class="top">
     <div>
       <div class="title-wrap">
-        <h1 id="heroTitle">Moonlight Team</h1>
+        <h1>Moonlight Team</h1>
       </div>
       <p class="subtitle">Elige a dónde quieres ir.</p>
     </div>
@@ -83,34 +80,6 @@
   const $ = (id) => document.getElementById(id);
 
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // ---------- Estallido de rayos al nacer la luna ----------
-  if (!prefersReducedMotion){
-    const burst = $('burstLayer');
-    const rayCount = 14;
-    for (let i = 0; i < rayCount; i++){
-      const ray = document.createElement('span');
-      ray.className = 'ray';
-      const angle = (360 / rayCount) * i + (Math.random() * 10 - 5);
-      ray.style.setProperty('--angle', angle + 'deg');
-      ray.style.setProperty('--ray-delay', (Math.random() * 0.12).toFixed(2) + 's');
-      burst.appendChild(ray);
-    }
-  }
-
-  // ---------- Título letra a letra ----------
-  (function splitTitle(){
-    const el = $('heroTitle');
-    const text = el.textContent;
-    el.textContent = '';
-    [...text].forEach((ch, i) => {
-      const span = document.createElement('span');
-      span.className = 'letter';
-      span.style.setProperty('--i', i);
-      span.textContent = ch === ' ' ? '\u00A0' : ch;
-      el.appendChild(span);
-    });
-  })();
 
   // ---------- Paralaje sutil de la luna con el ratón ----------
   if (!prefersReducedMotion && !('ontouchstart' in window)){
