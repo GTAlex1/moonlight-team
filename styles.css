@@ -128,8 +128,108 @@
     50%{ box-shadow: 0 0 48px 10px rgba(217,195,131,0.55); }
   }
 
+  /* ---------- Entrada épica, solo en la página índice ---------- */
+  .parallax-layer{
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .parallax-layer .moon{ position: absolute; }
+
+  .page-index .moon{
+    opacity: 0;
+    animation:
+      moonRise 1.9s cubic-bezier(.22,1,.36,1) forwards,
+      moonGlow 7s ease-in-out 1.9s infinite;
+  }
+  @keyframes moonRise{
+    0%{ opacity: 0; transform: scale(2.6) translateY(-30px); filter: blur(10px); }
+    55%{ opacity: 1; filter: blur(0); }
+    100%{ opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .page-index .title-wrap{ overflow: visible; }
+  .page-index .title-wrap h1{
+    opacity: 0;
+    animation: heroRise 0.9s ease-out 1.15s forwards;
+  }
+  .page-index .subtitle{
+    opacity: 0;
+    animation: heroRise 0.9s ease-out 1.4s forwards;
+  }
+  @keyframes heroRise{
+    from{ opacity: 0; transform: translateY(16px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+
+  .page-index .title-wrap::after{
+    content: '';
+    position: absolute;
+    inset: -22px -18px;
+    background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.65) 50%, transparent 65%);
+    background-size: 250% 250%;
+    background-position: 200% 0%;
+    mix-blend-mode: overlay;
+    opacity: 0;
+    pointer-events: none;
+    animation: titleShine 1.5s ease-out 1.75s 1 forwards;
+  }
+  @keyframes titleShine{
+    0%{ background-position: 200% 0%; opacity: 1; }
+    75%{ opacity: 1; }
+    100%{ background-position: -60% 0%; opacity: 0; }
+  }
+
+  .page-index .nav-card-wrap.reveal{
+    opacity: 0;
+    animation: cardRise 0.6s ease-out forwards;
+    animation-delay: var(--card-delay, 0s);
+  }
+  @keyframes cardRise{
+    from{ opacity: 0; transform: translateY(18px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+
+  .welcome-comet{
+    position: fixed;
+    top: -4%;
+    left: 108%;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 16px 3px rgba(255,255,255,0.95);
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    animation: comet 1.5s cubic-bezier(.32,.72,.4,1) 0.25s 1 forwards;
+  }
+  .welcome-comet::before{
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -1px;
+    width: 280px;
+    height: 2px;
+    transform: translateY(-50%) rotate(180deg);
+    background: linear-gradient(90deg, rgba(255,255,255,0.9), transparent);
+  }
+  @keyframes comet{
+    0%{ opacity: 0; transform: translate(0,0); }
+    8%{ opacity: 1; }
+    82%{ opacity: 1; }
+    100%{ opacity: 0; transform: translate(-145vw, 95vh); }
+  }
+
   @media (prefers-reduced-motion: reduce){
     .star, .shooting-star, .mist, .moon{ animation: none !important; }
+    .page-index .moon, .page-index .title-wrap h1, .page-index .subtitle,
+    .page-index .title-wrap::after, .page-index .nav-card-wrap.reveal, .welcome-comet{
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
   }
 
   .wrap{

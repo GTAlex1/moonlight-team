@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,500;0,600;1,500&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="page-index">
 
 <div class="stars" id="starsLayer" aria-hidden="true"></div>
 <div class="mist m1" aria-hidden="true"></div>
@@ -18,13 +18,16 @@
 <div class="shooting-star" style="--top:8%; --left:80%; --dur:16s; --delay:2s" aria-hidden="true"></div>
 <div class="shooting-star" style="--top:22%; --left:55%; --dur:22s; --delay:9s" aria-hidden="true"></div>
 <div class="shooting-star" style="--top:4%; --left:35%; --dur:19s; --delay:14s" aria-hidden="true"></div>
-<div class="moon" aria-hidden="true"></div>
+<div class="welcome-comet" aria-hidden="true"></div>
+<div class="parallax-layer" id="parallaxLayer">
+  <div class="moon" aria-hidden="true"></div>
+</div>
 
 <div class="wrap">
   <header class="top">
     <div>
       <div class="title-wrap">
-        <h1>Portal - Moonlight Team</h1>
+        <h1>Moonlight Team</h1>
       </div>
       <p class="subtitle">Elige a dónde quieres ir.</p>
     </div>
@@ -75,6 +78,18 @@
   const db = getFirestore(app);
   const auth = getAuth(app);
   const $ = (id) => document.getElementById(id);
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- Paralaje sutil de la luna con el ratón ----------
+  if (!prefersReducedMotion && !('ontouchstart' in window)){
+    const parallaxLayer = $('parallaxLayer');
+    document.addEventListener('mousemove', (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 16;
+      const y = (e.clientY / window.innerHeight - 0.5) * 16;
+      parallaxLayer.style.transform = `translate(${x}px, ${y}px)`;
+    });
+  }
 
   // ---------- Campo de estrellas ----------
   (function paintStars(){
@@ -141,6 +156,8 @@
   let overrides = {};         // { 'archivo.html': { private: true/false } }
   let isAdmin = false;
 
+  let hasRevealed = false;
+
   function renderNav(){
     if (discoveredFiles === null){
       navGrid.innerHTML = '<p class="nav-empty-admin">Buscando páginas…</p>';
@@ -159,9 +176,13 @@
     const visible = pages.filter(p => !p.private || isAdmin);
 
     navGrid.innerHTML = '';
-    visible.forEach(p => {
+    visible.forEach((p, i) => {
       const wrap = document.createElement('div');
       wrap.className = 'nav-card-wrap';
+      if (!hasRevealed && !prefersReducedMotion){
+        wrap.classList.add('reveal');
+        wrap.style.setProperty('--card-delay', (1.6 + i * 0.12) + 's');
+      }
 
       const a = document.createElement('a');
       a.className = 'nav-card' + (p.private ? ' is-private' : '');
@@ -187,6 +208,7 @@
 
       navGrid.appendChild(wrap);
     });
+    hasRevealed = true;
   }
 
   discoverHtmlFiles()
