@@ -104,84 +104,114 @@
     width: 46px;
     height: 46px;
     border-radius: 50%;
-    background:
-      radial-gradient(circle at 62% 70%, rgba(143,130,86,0.55) 0 4px, transparent 5px),
-      radial-gradient(circle at 40% 55%, rgba(143,130,86,0.45) 0 3px, transparent 4px),
-      radial-gradient(circle at 58% 30%, rgba(143,130,86,0.4) 0 2.5px, transparent 3.5px),
-      radial-gradient(circle at 35% 25%, #fdf6df, var(--gold) 70%);
-    box-shadow: 0 0 34px 6px rgba(217,195,131,0.35);
+    background-image: url('luna.jpg');
+    background-size: 190%;
+    background-position: 50% 42%;
+    background-repeat: no-repeat;
+    box-shadow: 0 0 22px 3px rgba(235,235,228,0.35), 0 0 48px 14px rgba(190,190,205,0.14);
     z-index: 0;
     animation: moonGlow 7s ease-in-out infinite;
   }
-  .moon::after{
-    content:'';
-    position: absolute;
-    top: -6px;
-    left: -16px;
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    background: var(--bg-deep);
-  }
   @keyframes moonGlow{
-    0%, 100%{ box-shadow: 0 0 30px 4px rgba(217,195,131,0.3); }
-    50%{ box-shadow: 0 0 48px 10px rgba(217,195,131,0.55); }
+    0%, 100%{ box-shadow: 0 0 22px 3px rgba(235,235,228,0.35), 0 0 48px 14px rgba(190,190,205,0.14); }
+    50%{ box-shadow: 0 0 32px 6px rgba(235,235,228,0.5), 0 0 64px 18px rgba(190,190,205,0.22); }
   }
 
-  /* ---------- Entrada épica, solo en la página índice ---------- */
+  /* ---------- Hero de portada, solo en la página índice ---------- */
+  .hero{
+    position: relative;
+    width: 100%;
+    height: 320px;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .constellation{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+  .constellation-line{
+    stroke: var(--gold-dim);
+    stroke-width: 1;
+    opacity: 0;
+    stroke-dasharray: 160;
+    stroke-dashoffset: 160;
+    animation: drawLine 1.2s ease-out forwards, lineFade 1.2s ease-out forwards;
+    animation-delay: var(--line-delay, 0s);
+  }
+  @keyframes drawLine{ to{ stroke-dashoffset: 0; } }
+  @keyframes lineFade{ 0%{ opacity: 0; } 20%{ opacity: 0.55; } 100%{ opacity: 0.55; } }
+  .constellation-dot{
+    fill: var(--gold);
+    opacity: 0;
+    animation: dotAppear 0.4s ease-out forwards, dotTwinkle 3s ease-in-out infinite;
+    animation-delay: var(--dot-delay, 0s), calc(var(--dot-delay, 0s) + 0.4s);
+  }
+  @keyframes dotAppear{ to{ opacity: 1; } }
+  @keyframes dotTwinkle{ 0%, 100%{ opacity: 0.55; } 50%{ opacity: 1; } }
+
   .parallax-layer{
     position: absolute;
     inset: 0;
-    z-index: 0;
+    z-index: 1;
     pointer-events: none;
   }
   .parallax-layer .moon{ position: absolute; }
 
   .page-index .moon{
+    top: 50%;
+    left: 50%;
+    right: auto;
+    width: 130px;
+    height: 130px;
     opacity: 0;
     animation:
       moonRise 1.9s cubic-bezier(.22,1,.36,1) .3s forwards,
       moonGlow 7s ease-in-out 2.2s infinite;
   }
   @keyframes moonRise{
-    0%{ opacity: 0; transform: scale(2.6) translateY(-30px); filter: blur(10px); }
+    0%{ opacity: 0; transform: translate(-50%,-50%) scale(2.6) translateY(-30px); filter: blur(10px); }
     55%{ opacity: 1; filter: blur(0); }
-    100%{ opacity: 1; transform: scale(1) translateY(0); }
+    100%{ opacity: 1; transform: translate(-50%,-50%) scale(1) translateY(0); }
   }
 
   /* Destello que "hace nacer" la luna */
   .flash{
     position: absolute;
-    top: 46px; right: 6%;
-    width: 46px; height: 46px;
+    top: 50%; left: 50%;
+    width: 130px; height: 130px;
+    transform: translate(-50%,-50%);
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,250,232,1) 0%, rgba(217,195,131,0.7) 35%, transparent 72%);
+    background: radial-gradient(circle, rgba(255,255,250,1) 0%, rgba(210,212,222,0.6) 35%, transparent 72%);
     opacity: 0;
-    transform: scale(0.15);
     animation: flashBloom 1s cubic-bezier(.16,.9,.3,1) .15s forwards;
   }
   @keyframes flashBloom{
-    0%{ opacity: 0; transform: scale(0.1); }
+    0%{ opacity: 0; transform: translate(-50%,-50%) scale(0.1); }
     28%{ opacity: 1; }
-    100%{ opacity: 0; transform: scale(11); }
+    100%{ opacity: 0; transform: translate(-50%,-50%) scale(9); }
   }
 
   /* Estallido de rayos radiales, generados por JS dentro de #burstLayer */
   .burst{
     position: absolute;
-    top: 46px; right: 6%;
-    width: 46px; height: 46px;
+    top: 50%; left: 50%;
+    width: 130px; height: 130px;
+    transform: translate(-50%,-50%);
   }
   .burst .ray{
     position: absolute;
     top: 50%; left: 50%;
     width: 2px;
-    height: 90px;
-    background: linear-gradient(180deg, rgba(255,244,214,0.95), transparent);
+    height: 95px;
+    background: linear-gradient(180deg, rgba(240,240,235,0.85), transparent);
     transform-origin: top center;
     transform: translate(-50%, 0) rotate(var(--angle, 0deg)) scaleY(0);
     opacity: 0;
-    animation: rayBurst 1.15s cubic-bezier(.2,.8,.3,1) forwards;
+    animation: rayBurst 1s cubic-bezier(.2,.8,.3,1) forwards;
     animation-delay: calc(0.25s + var(--ray-delay, 0s));
   }
   @keyframes rayBurst{
@@ -190,34 +220,84 @@
     100%{ opacity: 0; transform: translate(-50%,0) rotate(var(--angle, 0deg)) scaleY(1); }
   }
 
-  /* Halo de rayos giratorio permanente detrás de la luna */
+  /* Resplandor ambiental suave y difuso detrás de la luna (sin forma de rayos) */
   .moon-rays{
     position: absolute;
-    top: 46px; right: 6%;
-    width: 46px; height: 46px;
+    top: 50%; left: 50%;
+    width: 130px; height: 130px;
+    transform: translate(-50%,-50%);
   }
   .moon-rays::before{
     content: '';
     position: absolute;
     top: 50%; left: 50%;
-    width: 360px; height: 360px;
-    transform: translate(-50%, -50%) rotate(0deg);
+    width: 320px; height: 320px;
+    transform: translate(-50%, -50%);
     border-radius: 50%;
-    background: conic-gradient(from 0deg,
-      transparent 0deg, rgba(217,195,131,0.16) 10deg, transparent 24deg,
-      transparent 70deg, rgba(217,195,131,0.12) 82deg, transparent 96deg,
-      transparent 150deg, rgba(217,195,131,0.15) 162deg, transparent 176deg,
-      transparent 230deg, rgba(217,195,131,0.1) 240deg, transparent 254deg,
-      transparent 300deg, rgba(217,195,131,0.14) 312deg, transparent 326deg,
-      transparent 360deg);
-    filter: blur(3px);
+    background: radial-gradient(circle, rgba(225,225,220,0.16) 0%, rgba(190,190,205,0.08) 45%, transparent 72%);
+    filter: blur(8px);
     opacity: 0;
-    animation:
-      raysFadeIn 2.2s ease-out 1.5s forwards,
-      raysSpin 100s linear 1.5s infinite;
+    animation: raysFadeIn 2.4s ease-out 1.5s forwards;
   }
   @keyframes raysFadeIn{ to{ opacity: 1; } }
-  @keyframes raysSpin{ to{ transform: translate(-50%, -50%) rotate(360deg); } }
+
+  .cloud-layer{
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .stars.near-moon{
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  .cloud{
+    position: absolute;
+    bottom: var(--cloud-bottom, -20px);
+    left: var(--cloud-left, 0%);
+    width: var(--cloud-w, 220px);
+    height: var(--cloud-h, 70px);
+    background: radial-gradient(ellipse at 50% 42%,
+      rgba(238,238,242,0.6) 0%,
+      rgba(150,155,175,0.4) 40%,
+      rgba(30,36,58,0.75) 74%,
+      transparent 92%);
+    border-radius: 50%;
+    filter: blur(7px);
+    opacity: var(--cloud-o, 0.85);
+    animation: cloudDrift var(--cloud-dur, 100s) linear infinite alternate;
+    animation-delay: var(--cloud-delay, 0s);
+  }
+  @keyframes cloudDrift{
+    from{ transform: translateX(-6%); }
+    to{ transform: translateX(6%); }
+  }
+
+  .embers{
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .ember{
+    position: absolute;
+    bottom: -10px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(217,195,131,0.95), rgba(217,195,131,0) 70%);
+    box-shadow: 0 0 6px 1px rgba(217,195,131,0.6);
+    opacity: 0;
+    animation: emberFloat var(--dur, 14s) ease-in var(--delay, 0s) infinite;
+  }
+  @keyframes emberFloat{
+    0%{ opacity: 0; transform: translate(0, 0); }
+    10%{ opacity: 0.9; }
+    90%{ opacity: 0.7; }
+    100%{ opacity: 0; transform: translate(var(--sway, 20px), -110vh); }
+  }
 
   /* Título letra a letra */
   .page-index .title-wrap{ overflow: visible; }
@@ -303,7 +383,7 @@
   }
 
   @media (prefers-reduced-motion: reduce){
-    .star, .shooting-star, .mist, .moon{ animation: none !important; }
+    .star, .shooting-star, .mist, .moon, .cloud{ animation: none !important; }
     .page-index .moon, .page-index .title-wrap h1 .letter, .page-index .subtitle,
     .page-index .title-wrap::after, .page-index .nav-card-wrap.reveal, .welcome-comet,
     .flash, .burst .ray, .moon-rays::before{
@@ -683,5 +763,4 @@
     header.top{ flex-direction: column; }
     .admin-add.cols-2{ grid-template-columns: 1fr; }
     .moon{ top: 20px; right: 20px; width: 34px; height: 34px; }
-    .moon::after{ width: 34px; height: 34px; top: -4px; left: -11px; }
   }
