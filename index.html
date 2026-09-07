@@ -13,17 +13,23 @@
 <body class="page-index">
 
 <div class="stars" id="starsLayer" aria-hidden="true"></div>
+<div class="embers" id="embersLayer" aria-hidden="true"></div>
 <div class="mist m1" aria-hidden="true"></div>
 <div class="mist m2" aria-hidden="true"></div>
 <div class="shooting-star" style="--top:8%; --left:80%; --dur:16s; --delay:2s" aria-hidden="true"></div>
 <div class="shooting-star" style="--top:22%; --left:55%; --dur:22s; --delay:9s" aria-hidden="true"></div>
 <div class="shooting-star" style="--top:4%; --left:35%; --dur:19s; --delay:14s" aria-hidden="true"></div>
 <div class="welcome-comet" aria-hidden="true"></div>
-<div class="parallax-layer" id="parallaxLayer">
-  <div class="moon-rays" aria-hidden="true"></div>
-  <div class="flash" aria-hidden="true"></div>
-  <div class="burst" id="burstLayer" aria-hidden="true"></div>
-  <div class="moon" aria-hidden="true"></div>
+
+<div class="hero" aria-hidden="true">
+  <svg class="constellation" id="constellation" viewBox="0 0 700 260" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="parallax-layer" id="parallaxLayer">
+    <div class="moon-rays"></div>
+    <div class="flash"></div>
+    <div class="burst" id="burstLayer"></div>
+    <div class="moon"></div>
+  </div>
+  <div class="cloud-layer" id="cloudLayer"></div>
 </div>
 
 <div class="wrap">
@@ -84,6 +90,112 @@
 
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // ---------- Constelación en el hero ----------
+  (function paintConstellation(){
+    const svg = $('constellation');
+    const points = [
+      [90, 60], [150, 110], [230, 70], [520, 90], [590, 130], [640, 75], [560, 190]
+    ];
+    const edges = [[0,1],[1,2],[3,4],[4,5],[4,6]];
+    const ns = 'http://www.w3.org/2000/svg';
+
+    edges.forEach(([a, b], i) => {
+      const [x1, y1] = points[a];
+      const [x2, y2] = points[b];
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('class', 'constellation-line');
+      line.style.setProperty('--line-delay', (0.4 + i * 0.15) + 's');
+      svg.appendChild(line);
+    });
+
+    points.forEach(([x, y], i) => {
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+      dot.setAttribute('r', 2.2);
+      dot.setAttribute('class', 'constellation-dot');
+      dot.style.setProperty('--dot-delay', (0.3 + i * 0.12) + 's');
+      svg.appendChild(dot);
+    });
+  })();
+
+  // ---------- Motas de luz flotando por toda la página ----------
+  if (!prefersReducedMotion){
+    const embers = $('embersLayer');
+    const emberCount = window.innerWidth < 480 ? 10 : 18;
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < emberCount; i++){
+      const e = document.createElement('span');
+      e.className = 'ember';
+      e.style.left = (Math.random() * 100).toFixed(2) + '%';
+      e.style.setProperty('--dur', (Math.random() * 10 + 10).toFixed(1) + 's');
+      e.style.setProperty('--delay', (Math.random() * 12).toFixed(1) + 's');
+      e.style.setProperty('--sway', (Math.random() * 60 - 30).toFixed(0) + 'px');
+      const size = (Math.random() * 2 + 1.5).toFixed(1);
+      e.style.width = size + 'px';
+      e.style.height = size + 'px';
+      frag.appendChild(e);
+    }
+    embers.appendChild(frag);
+  }
+
+  // ---------- Estrellas pequeñas alrededor de la luna ----------
+  {
+    const heroEl = document.querySelector('.hero');
+    if (heroEl){
+      const near = document.createElement('div');
+      near.className = 'stars near-moon';
+      const count = 22;
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < count; i++){
+        const s = document.createElement('span');
+        s.className = 'star';
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 60 + Math.random() * 150; // px desde el centro de la luna
+        s.style.left = `calc(50% + ${(Math.cos(angle) * dist).toFixed(1)}px)`;
+        s.style.top = `calc(50% + ${(Math.sin(angle) * dist).toFixed(1)}px)`;
+        const size = (Math.random() * 1.4 + 0.7).toFixed(2);
+        s.style.width = size + 'px';
+        s.style.height = size + 'px';
+        s.style.setProperty('--dur', (Math.random() * 3 + 2).toFixed(2) + 's');
+        s.style.setProperty('--delay', (Math.random() * 5).toFixed(2) + 's');
+        s.style.setProperty('--o-min', (Math.random() * 0.2 + 0.15).toFixed(2));
+        s.style.setProperty('--o-max', (Math.random() * 0.3 + 0.65).toFixed(2));
+        frag.appendChild(s);
+      }
+      near.appendChild(frag);
+      heroEl.appendChild(near);
+    }
+  }
+
+  // ---------- Nublado flotando delante de la luna ----------
+  {
+    const cloudLayer = $('cloudLayer');
+    const clouds = [
+      { left: -10, bottom: -30, w: 320, h: 90, o: 0.9, dur: 130 },
+      { left: 8,   bottom: -40, w: 260, h: 80, o: 0.8, dur: 150 },
+      { left: 28,  bottom: -20, w: 300, h: 95, o: 0.85, dur: 120 },
+      { left: 48,  bottom: -35, w: 280, h: 85, o: 0.75, dur: 160 },
+      { left: 66,  bottom: -15, w: 300, h: 90, o: 0.85, dur: 135 },
+      { left: 84,  bottom: -30, w: 260, h: 80, o: 0.8, dur: 145 },
+      { left: 15,  bottom: 40,  w: 200, h: 55, o: 0.55, dur: 100 },
+      { left: 55,  bottom: 55,  w: 220, h: 60, o: 0.5, dur: 115 },
+    ];
+    clouds.forEach((c, i) => {
+      const div = document.createElement('div');
+      div.className = 'cloud';
+      div.style.setProperty('--cloud-left', c.left + '%');
+      div.style.setProperty('--cloud-bottom', c.bottom + 'px');
+      div.style.setProperty('--cloud-w', c.w + 'px');
+      div.style.setProperty('--cloud-h', c.h + 'px');
+      div.style.setProperty('--cloud-o', c.o);
+      div.style.setProperty('--cloud-dur', prefersReducedMotion ? '0s' : c.dur + 's');
+      div.style.setProperty('--cloud-delay', (-i * 11) + 's');
+      cloudLayer.appendChild(div);
+    });
+  }
+
   // ---------- Estallido de rayos al nacer la luna ----------
   if (!prefersReducedMotion){
     const burst = $('burstLayer');
@@ -125,7 +237,7 @@
   // ---------- Campo de estrellas ----------
   (function paintStars(){
     const layer = $('starsLayer');
-    const count = window.innerWidth < 480 ? 26 : 42;
+    const count = window.innerWidth < 480 ? 36 : 65;
     const frag = document.createDocumentFragment();
     for (let i = 0; i < count; i++){
       const s = document.createElement('span');
