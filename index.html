@@ -22,7 +22,6 @@
 <div class="welcome-comet" aria-hidden="true"></div>
 
 <div class="hero" aria-hidden="true">
-  <svg class="constellation" id="constellation" viewBox="0 0 700 260" preserveAspectRatio="xMidYMid meet"></svg>
   <div class="parallax-layer" id="parallaxLayer">
     <div class="moon-rays"></div>
     <div class="flash"></div>
@@ -89,36 +88,6 @@
   const $ = (id) => document.getElementById(id);
 
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // ---------- Constelación en el hero ----------
-  (function paintConstellation(){
-    const svg = $('constellation');
-    const points = [
-      [90, 60], [150, 110], [230, 70], [520, 90], [590, 130], [640, 75], [560, 190]
-    ];
-    const edges = [[0,1],[1,2],[3,4],[4,5],[4,6]];
-    const ns = 'http://www.w3.org/2000/svg';
-
-    edges.forEach(([a, b], i) => {
-      const [x1, y1] = points[a];
-      const [x2, y2] = points[b];
-      const line = document.createElementNS(ns, 'line');
-      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-      line.setAttribute('class', 'constellation-line');
-      line.style.setProperty('--line-delay', (0.4 + i * 0.15) + 's');
-      svg.appendChild(line);
-    });
-
-    points.forEach(([x, y], i) => {
-      const dot = document.createElementNS(ns, 'circle');
-      dot.setAttribute('cx', x); dot.setAttribute('cy', y);
-      dot.setAttribute('r', 2.2);
-      dot.setAttribute('class', 'constellation-dot');
-      dot.style.setProperty('--dot-delay', (0.3 + i * 0.12) + 's');
-      svg.appendChild(dot);
-    });
-  })();
 
   // ---------- Motas de luz flotando por toda la página ----------
   if (!prefersReducedMotion){
