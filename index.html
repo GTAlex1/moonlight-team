@@ -141,27 +141,38 @@
   // ---------- Nublado flotando delante de la luna ----------
   {
     const cloudLayer = $('cloudLayer');
-    const clouds = [
-      { left: -10, bottom: -30, w: 320, h: 90, o: 0.9, dur: 130 },
-      { left: 8,   bottom: -40, w: 260, h: 80, o: 0.8, dur: 150 },
-      { left: 28,  bottom: -20, w: 300, h: 95, o: 0.85, dur: 120 },
-      { left: 48,  bottom: -35, w: 280, h: 85, o: 0.75, dur: 160 },
-      { left: 66,  bottom: -15, w: 300, h: 90, o: 0.85, dur: 135 },
-      { left: 84,  bottom: -30, w: 260, h: 80, o: 0.8, dur: 145 },
-      { left: 15,  bottom: 40,  w: 200, h: 55, o: 0.55, dur: 100 },
-      { left: 55,  bottom: 55,  w: 220, h: 60, o: 0.5, dur: 115 },
+    const cloudDefs = [
+      { left: -8,  bottom: -25, scale: 1.15, dur: 130, tint: 0.95 },
+      { left: 12,  bottom: -42, scale: 0.9,  dur: 150, tint: 0.8 },
+      { left: 30,  bottom: -8,  scale: 1.05, dur: 120, tint: 0.9 },
+      { left: 50,  bottom: -33, scale: 1.0,  dur: 160, tint: 0.8 },
+      { left: 70,  bottom: -5,  scale: 1.1,  dur: 135, tint: 0.9 },
+      { left: 88,  bottom: -28, scale: 0.85, dur: 145, tint: 0.8 },
+      { left: 20,  bottom: 50,  scale: 0.5,  dur: 100, tint: 0.6 },
+      { left: 62,  bottom: 62,  scale: 0.55, dur: 115, tint: 0.55 },
     ];
-    clouds.forEach((c, i) => {
-      const div = document.createElement('div');
-      div.className = 'cloud';
-      div.style.setProperty('--cloud-left', c.left + '%');
-      div.style.setProperty('--cloud-bottom', c.bottom + 'px');
-      div.style.setProperty('--cloud-w', c.w + 'px');
-      div.style.setProperty('--cloud-h', c.h + 'px');
-      div.style.setProperty('--cloud-o', c.o);
-      div.style.setProperty('--cloud-dur', prefersReducedMotion ? '0s' : c.dur + 's');
-      div.style.setProperty('--cloud-delay', (-i * 11) + 's');
-      cloudLayer.appendChild(div);
+    cloudDefs.forEach((c, i) => {
+      const group = document.createElement('div');
+      group.className = 'cloud-group';
+      group.style.setProperty('--cloud-left', c.left + '%');
+      group.style.setProperty('--cloud-bottom', c.bottom + 'px');
+      group.style.setProperty('--cloud-dur', prefersReducedMotion ? '0s' : c.dur + 's');
+      group.style.setProperty('--cloud-delay', (-i * 9) + 's');
+      group.style.opacity = c.tint;
+
+      const puffCount = 3 + Math.round(Math.random());
+      for (let p = 0; p < puffCount; p++){
+        const puff = document.createElement('span');
+        puff.className = 'cloud-puff';
+        const w = (95 + Math.random() * 90) * c.scale;
+        const h = w * (0.42 + Math.random() * 0.14);
+        puff.style.width = w.toFixed(0) + 'px';
+        puff.style.height = h.toFixed(0) + 'px';
+        puff.style.left = ((p - (puffCount - 1) / 2) * 60 + (Math.random() * 24 - 12)).toFixed(0) + 'px';
+        puff.style.bottom = (Math.random() * 20).toFixed(0) + 'px';
+        group.appendChild(puff);
+      }
+      cloudLayer.appendChild(group);
     });
   }
 
