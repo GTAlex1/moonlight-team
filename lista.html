@@ -366,7 +366,6 @@
   // ---------- Genérico: lista simple (ocupados / reservados) ----------
   function setupSimpleList(collectionName, listEl, emptyEl, emptyText){
     let cache = [];
-    let editingId = null;
     onSnapshot(query(collection(db, collectionName), orderBy('createdAt', 'asc')),
       (snap) => {
         cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -398,41 +397,6 @@
         const li = document.createElement('li');
         li.dataset.id = item.id;
 
-        if (editingId === item.id){
-          const form = document.createElement('div');
-          form.className = 'li-edit-form';
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.maxLength = 40;
-          input.value = item.nombre;
-          form.appendChild(input);
-          li.appendChild(form);
-
-          const actions = document.createElement('div');
-          actions.className = 'li-actions';
-          const save = async () => {
-            const val = input.value.trim();
-            if (!val) return;
-            await updateDoc(doc(db, collectionName, item.id), { nombre: val });
-            editingId = null;
-          };
-          actions.appendChild(makeActionBtn('Guardar', save));
-          const cancelBtn = document.createElement('button');
-          cancelBtn.className = 'icon-btn';
-          cancelBtn.textContent = 'Cancelar';
-          cancelBtn.addEventListener('click', () => { editingId = null; paint(); });
-          actions.appendChild(cancelBtn);
-          li.appendChild(actions);
-          input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); save(); }
-            if (e.key === 'Escape') { editingId = null; paint(); }
-          });
-          listEl.appendChild(li);
-          input.focus();
-          input.setSelectionRange(input.value.length, input.value.length);
-          return;
-        }
-
         const left = document.createElement('span');
         left.className = 'li-left';
         left.appendChild(makeHandle());
@@ -444,7 +408,6 @@
         if (isAdmin){
           const actions = document.createElement('div');
           actions.className = 'li-actions';
-          actions.appendChild(makeActionBtn('Editar', () => { editingId = item.id; paint(); }));
           if (collectionName === 'ocupados' && item.origenBuscado){
             actions.appendChild(makeActionBtn('Liberar', () => restoreToBuscados(item)));
           }
