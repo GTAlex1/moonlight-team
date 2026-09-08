@@ -366,6 +366,7 @@
   // ---------- Genérico: lista simple (ocupados / reservados) ----------
   function setupSimpleList(collectionName, listEl, emptyEl, emptyText){
     let cache = [];
+    let editingId = null;
     onSnapshot(query(collection(db, collectionName), orderBy('createdAt', 'asc')),
       (snap) => {
         cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -396,6 +397,42 @@
       filtered.forEach(item => {
         const li = document.createElement('li');
         li.dataset.id = item.id;
+
+        if (editingId === item.id){
+          const form = document.createElement('div');
+          form.className = 'li-edit-form';
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.maxLength = 40;
+          input.value = item.nombre;
+          form.appendChild(input);
+          li.appendChild(form);
+
+          const actions = document.createElement('div');
+          actions.className = 'li-actions';
+          const save = async () => {
+            const val = input.value.trim();
+            if (!val) return;
+            await updateDoc(doc(db, collectionName, item.id), { nombre: val });
+            editingId = null;
+          };
+          actions.appendChild(makeActionBtn('Guardar', save));
+          const cancelBtn = document.createElement('button');
+          cancelBtn.className = 'icon-btn';
+          cancelBtn.textContent = 'Cancelar';
+          cancelBtn.addEventListener('click', () => { editingId = null; paint(); });
+          actions.appendChild(cancelBtn);
+          li.appendChild(actions);
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); save(); }
+            if (e.key === 'Escape') { editingId = null; paint(); }
+          });
+          listEl.appendChild(li);
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+          return;
+        }
+
         const left = document.createElement('span');
         left.className = 'li-left';
         left.appendChild(makeHandle());
@@ -405,10 +442,14 @@
         left.appendChild(span);
         li.appendChild(left);
         if (isAdmin){
+          const actions = document.createElement('div');
+          actions.className = 'li-actions';
+          actions.appendChild(makeActionBtn('Editar', () => { editingId = item.id; paint(); }));
           if (collectionName === 'ocupados' && item.origenBuscado){
-            li.appendChild(makeActionBtn('Liberar', () => restoreToBuscados(item)));
+            actions.appendChild(makeActionBtn('Liberar', () => restoreToBuscados(item)));
           }
-          li.appendChild(makeDeleteBtn(collectionName, item.id));
+          actions.appendChild(makeDeleteBtn(collectionName, item.id));
+          li.appendChild(actions);
         }
         listEl.appendChild(li);
       });
@@ -473,6 +514,7 @@
   const buscadosList = $('buscadosList');
   const buscadosEmpty = $('buscadosEmpty');
   let buscadosCache = [];
+  let editingBuscadoId = null;
 
   onSnapshot(query(collection(db, 'buscados'), orderBy('createdAt', 'asc')),
     (snap) => {
@@ -517,6 +559,47 @@
     filtered.forEach(r => {
       const li = document.createElement('li');
       li.dataset.id = r.id;
+
+      if (editingBuscadoId === r.id){
+        const form = document.createElement('div');
+        form.className = 'li-edit-form li-edit-form-wide';
+        const nombreInput = document.createElement('input');
+        nombreInput.type = 'text'; nombreInput.maxLength = 40; nombreInput.placeholder = 'Personaje';
+        nombreInput.value = r.nombre;
+        const pedidoInput = document.createElement('input');
+        pedidoInput.type = 'text'; pedidoInput.maxLength = 40; pedidoInput.placeholder = 'Lo pide';
+        pedidoInput.value = r.pedidoPor;
+        const motivoInput = document.createElement('input');
+        motivoInput.type = 'text'; motivoInput.maxLength = 80; motivoInput.placeholder = 'Para qué lo busca';
+        motivoInput.value = r.motivo;
+        const fechaInput = document.createElement('input');
+        fechaInput.type = 'date';
+        fechaInput.value = r.fecha || '';
+        form.append(nombreInput, pedidoInput, motivoInput, fechaInput);
+        li.appendChild(form);
+
+        const actions = document.createElement('div');
+        actions.className = 'li-actions';
+        const save = async () => {
+          const nombre = nombreInput.value.trim();
+          const pedidoPor = pedidoInput.value.trim();
+          const motivo = motivoInput.value.trim();
+          if (!nombre || !pedidoPor || !motivo) return;
+          await updateDoc(doc(db, 'buscados', r.id), { nombre, pedidoPor, motivo, fecha: fechaInput.value || null });
+          editingBuscadoId = null;
+        };
+        actions.appendChild(makeActionBtn('Guardar', save));
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'icon-btn';
+        cancelBtn.textContent = 'Cancelar';
+        cancelBtn.addEventListener('click', () => { editingBuscadoId = null; paintBuscados(); });
+        actions.appendChild(cancelBtn);
+        li.appendChild(actions);
+        buscadosList.appendChild(li);
+        nombreInput.focus();
+        return;
+      }
+
       const fechaTxt = isAdmin && r.fecha ? formatFecha(r.fecha) : null;
       const content = document.createElement('div');
       content.className = 'li-left';
@@ -530,8 +613,12 @@
       content.appendChild(textWrap);
       li.appendChild(content);
       if (isAdmin){
-        li.appendChild(makeActionBtn('Encontrado', () => moveToOcupados(r)));
-        li.appendChild(makeDeleteBtn('buscados', r.id));
+        const actions = document.createElement('div');
+        actions.className = 'li-actions';
+        actions.appendChild(makeActionBtn('Editar', () => { editingBuscadoId = r.id; paintBuscados(); }));
+        actions.appendChild(makeActionBtn('Encontrado', () => moveToOcupados(r)));
+        actions.appendChild(makeDeleteBtn('buscados', r.id));
+        li.appendChild(actions);
       }
       buscadosList.appendChild(li);
     });

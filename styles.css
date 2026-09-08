@@ -520,7 +520,29 @@
     background: rgba(255,255,255,0.09);
   }
 
-  .li-left{ display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+  .li-left{ display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1; }
+
+  .li-actions{
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .li-edit-form{
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  .li-edit-form input{
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    font-size: 0.92rem;
+  }
+  .li-edit-form-wide{ flex-wrap: wrap; }
+  .li-edit-form-wide input{ min-width: 110px; }
 
   .handle{
     color: var(--gold-dim);
