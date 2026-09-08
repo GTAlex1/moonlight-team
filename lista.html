@@ -25,7 +25,7 @@
   <header class="top">
     <div>
       <div class="title-wrap">
-        <h1>Lista de Moonlight Team</h1>
+        <h1>Moonlight Team</h1>
       </div>
       <p class="subtitle">Quién lleva cada personaje ahora mismo, cuáles están reservados y cuáles andamos buscando bajo la luna.</p>
     </div>
@@ -260,6 +260,18 @@
     return btn;
   }
 
+  function makeActionBtn(label, onClick){
+    const btn = document.createElement('button');
+    btn.className = 'icon-btn icon-btn-confirm';
+    btn.textContent = label;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try { await onClick(); }
+      catch (e) { statusLine.textContent = 'No se pudo completar la acción, inténtalo de nuevo.'; btn.disabled = false; }
+    });
+    return btn;
+  }
+
   function orderComparator(a, b){
     const av = typeof a.orden === 'number' ? a.orden : Infinity;
     const bv = typeof b.orden === 'number' ? b.orden : Infinity;
@@ -392,7 +404,12 @@
         span.textContent = item.nombre;
         left.appendChild(span);
         li.appendChild(left);
-        if (isAdmin) li.appendChild(makeDeleteBtn(collectionName, item.id));
+        if (isAdmin){
+          if (collectionName === 'ocupados' && item.origenBuscado){
+            li.appendChild(makeActionBtn('Liberar', () => restoreToBuscados(item)));
+          }
+          li.appendChild(makeDeleteBtn(collectionName, item.id));
+        }
         listEl.appendChild(li);
       });
     }
@@ -404,6 +421,35 @@
   const reservadosCtl = setupSimpleList('reservados', $('reservadosList'), $('reservadosEmpty'), 'Ninguna reserva en pie por ahora.');
   function paintOcupados(){ ocupadosCtl.paint(); }
   function paintReservados(){ reservadosCtl.paint(); }
+
+  // Un buscado se ha encontrado: pasa a ocupados, guardando quién lo pedía y por qué por si se libera más adelante
+  async function moveToOcupados(buscado){
+    await addDoc(collection(db, 'ocupados'), {
+      nombre: buscado.nombre,
+      orden: nextOrden(ocupadosCtl.getCache()),
+      createdAt: serverTimestamp(),
+      origenBuscado: {
+        pedidoPor: buscado.pedidoPor,
+        motivo: buscado.motivo,
+        fecha: buscado.fecha || null
+      }
+    });
+    await deleteDoc(doc(db, 'buscados', buscado.id));
+  }
+
+  // Un ocupado que venía de un buscado queda libre: vuelve a buscados con los datos originales, sin volver a escribirlos
+  async function restoreToBuscados(ocupado){
+    const origen = ocupado.origenBuscado || {};
+    await addDoc(collection(db, 'buscados'), {
+      nombre: ocupado.nombre,
+      pedidoPor: origen.pedidoPor || '',
+      motivo: origen.motivo || '',
+      fecha: origen.fecha || null,
+      orden: nextOrden(buscadosCache),
+      createdAt: serverTimestamp()
+    });
+    await deleteDoc(doc(db, 'ocupados', ocupado.id));
+  }
 
   async function addOcupado(){
     const nombre = $('ocNombre').value.trim();
@@ -483,7 +529,10 @@
       `;
       content.appendChild(textWrap);
       li.appendChild(content);
-      if (isAdmin) li.appendChild(makeDeleteBtn('buscados', r.id));
+      if (isAdmin){
+        li.appendChild(makeActionBtn('Encontrado', () => moveToOcupados(r)));
+        li.appendChild(makeDeleteBtn('buscados', r.id));
+      }
       buscadosList.appendChild(li);
     });
   }

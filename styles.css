@@ -553,6 +553,9 @@
     flex-shrink:0;
   }
   .icon-btn:hover{ color: var(--danger); background: rgba(209,138,118,0.1); }
+  .icon-btn.icon-btn-confirm{ color: var(--gold-dim); }
+  .icon-btn.icon-btn-confirm:hover{ color: var(--gold); background: rgba(217,195,131,0.12); }
+  .icon-btn[disabled]{ opacity: 0.5; cursor: default; }
 
   .admin-add{
     border-top: 1px dashed var(--border);
