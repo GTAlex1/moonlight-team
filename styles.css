@@ -567,16 +567,18 @@
   .icon-btn{
     background:none;
     border: none;
-    color: var(--ink-soft);
+    color: var(--danger);
     cursor: pointer;
     font-size: 0.85rem;
     padding: 4px 8px;
     border-radius: 3px;
     flex-shrink:0;
   }
-  .icon-btn:hover{ color: var(--danger); background: rgba(209,138,118,0.1); }
-  .icon-btn.icon-btn-confirm{ color: var(--gold-dim); }
-  .icon-btn.icon-btn-confirm:hover{ color: var(--gold); background: rgba(217,195,131,0.12); }
+  .icon-btn:hover{ background: rgba(209,138,118,0.12); }
+  .icon-btn.icon-btn-edit{ color: #7fae72; }
+  .icon-btn.icon-btn-edit:hover{ background: rgba(127,174,114,0.12); }
+  .icon-btn.icon-btn-confirm{ color: #7fa8d9; }
+  .icon-btn.icon-btn-confirm:hover{ background: rgba(127,168,217,0.12); }
   .icon-btn[disabled]{ opacity: 0.5; cursor: default; }
 
   .admin-add{

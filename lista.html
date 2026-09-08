@@ -260,9 +260,9 @@
     return btn;
   }
 
-  function makeActionBtn(label, onClick){
+  function makeActionBtn(label, onClick, variant){
     const btn = document.createElement('button');
-    btn.className = 'icon-btn icon-btn-confirm';
+    btn.className = 'icon-btn ' + (variant || 'icon-btn-confirm');
     btn.textContent = label;
     btn.addEventListener('click', async () => {
       btn.disabled = true;
@@ -578,7 +578,7 @@
       if (isAdmin){
         const actions = document.createElement('div');
         actions.className = 'li-actions';
-        actions.appendChild(makeActionBtn('Editar', () => { editingBuscadoId = r.id; paintBuscados(); }));
+        actions.appendChild(makeActionBtn('Editar', () => { editingBuscadoId = r.id; paintBuscados(); }, 'icon-btn-edit'));
         actions.appendChild(makeActionBtn('Encontrado', () => moveToOcupados(r)));
         actions.appendChild(makeDeleteBtn('buscados', r.id));
         li.appendChild(actions);
