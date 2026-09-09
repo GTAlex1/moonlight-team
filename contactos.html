@@ -120,7 +120,13 @@
     return String(str ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 
-  const MASK = '•••• •• •• ••';
+  function maskContacto(value){
+    return String(value || '').split('').map(ch => {
+      if (/[0-9]/.test(ch)) return '•';
+      if (/[a-zA-ZÀ-ÿ]/.test(ch)) return 'x';
+      return ch; // espacios, +, -, @, ., _... se dejan tal cual, no revelan nada
+    }).join('');
+  }
 
   // ---------- Admin login ----------
   let isAdmin = false;
@@ -217,10 +223,12 @@
       li.appendChild(left);
 
       if (!isAdmin){
-        const masked = document.createElement('span');
-        masked.className = 'li-meta';
-        masked.textContent = MASK;
-        li.appendChild(masked);
+        if (o.contactoMask){
+          const masked = document.createElement('span');
+          masked.className = 'li-meta';
+          masked.textContent = o.contactoMask;
+          li.appendChild(masked);
+        }
         contactList.appendChild(li);
         return;
       }
@@ -236,6 +244,7 @@
       const save = async () => {
         const val = input.value.trim();
         await setDoc(doc(db, 'contactos', o.id), { contacto: val }, { merge: true });
+        await setDoc(doc(db, 'ocupados', o.id), { contactoMask: val ? maskContacto(val) : '' }, { merge: true });
       };
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
 
