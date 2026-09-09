@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contactos — Moonlight Team</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,500;0,600;1,500&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="stars" id="starsLayer" aria-hidden="true"></div>
+<div class="mist m1" aria-hidden="true"></div>
+<div class="mist m2" aria-hidden="true"></div>
+<div class="shooting-star" style="--top:8%; --left:80%; --dur:16s; --delay:2s" aria-hidden="true"></div>
+<div class="shooting-star" style="--top:22%; --left:55%; --dur:22s; --delay:9s" aria-hidden="true"></div>
+<div class="shooting-star" style="--top:4%; --left:35%; --dur:19s; --delay:14s" aria-hidden="true"></div>
+<div class="moon" aria-hidden="true"></div>
+
+<div class="wrap">
+  <a class="back-link" href="index.html">← Volver al índice</a>
+  <header class="top">
+    <div>
+      <div class="title-wrap">
+        <h1>Contactos</h1>
+      </div>
+      <p class="subtitle">Vincula un teléfono o usuario de WhatsApp a cada personaje ocupado. Sin sesión de admin, esta información no se puede leer.</p>
+    </div>
+    <button class="admin-toggle" id="adminToggleBtn">Acceso admin</button>
+  </header>
+
+  <div class="search-wrap">
+    <input type="text" id="searchInput" placeholder="Buscar un personaje..." autocomplete="off">
+  </div>
+
+  <section class="panel">
+    <h2>Personajes ocupados</h2>
+    <p class="panel-desc">A cada uno le puedes asociar un contacto único (teléfono o usuario), para identificar a la persona detrás si algún día cambia de rol o hay que aplicar una sanción.</p>
+    <ul class="simple-list" id="contactList"></ul>
+    <p class="empty-note" id="contactEmpty" hidden></p>
+  </section>
+
+  <footer class="status" id="statusLine"></footer>
+</div>
+
+<dialog id="loginDialog">
+  <div class="dialog-inner">
+    <h3>Acceso admin</h3>
+    <div class="dialog-field">
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" type="email" autocomplete="username">
+    </div>
+    <div class="dialog-field">
+      <label for="loginPass">Contraseña</label>
+      <input id="loginPass" type="password" autocomplete="current-password">
+    </div>
+    <p class="dialog-error" id="loginError"></p>
+    <div class="dialog-actions">
+      <button class="btn-primary" id="loginSubmit" type="button">Entrar</button>
+      <button class="btn-ghost" id="loginCancel" type="button">Cancelar</button>
+    </div>
+  </div>
+</dialog>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc,
+    onSnapshot, query, orderBy
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCJw3MuQQrYZ7xaabbKhK5Q4fAAB5xzZsk",
+    authDomain: "moonlight-teamm-947ee.firebaseapp.com",
+    projectId: "moonlight-teamm-947ee",
+    storageBucket: "moonlight-teamm-947ee.firebasestorage.app",
+    messagingSenderId: "664050217208",
+    appId: "1:664050217208:web:194120b9ab73b43a984b0d"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Campo de estrellas ----------
+  (function paintStars(){
+    const layer = $('starsLayer');
+    const count = window.innerWidth < 480 ? 26 : 42;
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < count; i++){
+      const s = document.createElement('span');
+      s.className = 'star';
+      const size = (Math.random() * 1.6 + 0.8).toFixed(2);
+      s.style.top = (Math.random() * 100).toFixed(2) + '%';
+      s.style.left = (Math.random() * 100).toFixed(2) + '%';
+      s.style.width = size + 'px';
+      s.style.height = size + 'px';
+      s.style.setProperty('--dur', (Math.random() * 3 + 2).toFixed(2) + 's');
+      s.style.setProperty('--delay', (Math.random() * 5).toFixed(2) + 's');
+      s.style.setProperty('--o-min', (Math.random() * 0.2 + 0.15).toFixed(2));
+      s.style.setProperty('--o-max', (Math.random() * 0.3 + 0.7).toFixed(2));
+      frag.appendChild(s);
+    }
+    layer.appendChild(frag);
+  })();
+
+  function escapeHtml(str){
+    return String(str ?? '').replace(/[&<>"']/g, (m) => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[m]));
+  }
+  function normalize(str){
+    return String(str ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  const MASK = '•••• •• •• ••';
+
+  // ---------- Admin login ----------
+  let isAdmin = false;
+  const adminToggleBtn = $('adminToggleBtn');
+  const loginDialog = $('loginDialog');
+  const loginEmail = $('loginEmail');
+  const loginPass = $('loginPass');
+  const loginError = $('loginError');
+  const statusLine = $('statusLine');
+
+  adminToggleBtn.addEventListener('click', () => {
+    if (isAdmin) {
+      signOut(auth);
+    } else {
+      loginError.textContent = '';
+      loginEmail.value = '';
+      loginPass.value = '';
+      loginDialog.showModal();
+    }
+  });
+  $('loginCancel').addEventListener('click', () => loginDialog.close());
+  $('loginSubmit').addEventListener('click', async () => {
+    loginError.textContent = '';
+    try {
+      await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPass.value);
+      loginDialog.close();
+    } catch (e) {
+      loginError.textContent = 'Email o contraseña incorrectos.';
+    }
+  });
+
+  // ---------- Datos ----------
+  const contactList = $('contactList');
+  const contactEmpty = $('contactEmpty');
+  let ocupadosCache = [];
+  let contactosCache = {};   // { [ocupadoId]: "valor de contacto" }
+  let contactosUnsub = null;
+  let searchTerm = '';
+
+  onSnapshot(query(collection(db, 'ocupados'), orderBy('createdAt', 'asc')),
+    (snap) => { ocupadosCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); },
+    () => { statusLine.textContent = 'No se pudo conectar con la base de datos.'; }
+  );
+
+  $('searchInput').addEventListener('input', (e) => {
+    searchTerm = normalize(e.target.value.trim());
+    render();
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    isAdmin = !!user;
+    adminToggleBtn.textContent = isAdmin ? 'Salir del modo admin' : 'Acceso admin';
+    adminToggleBtn.classList.toggle('is-admin', isAdmin);
+
+    if (isAdmin && !contactosUnsub){
+      contactosUnsub = onSnapshot(collection(db, 'contactos'), (snap) => {
+        contactosCache = {};
+        snap.docs.forEach(d => { contactosCache[d.id] = d.data().contacto || ''; });
+        render();
+      });
+    } else if (!isAdmin && contactosUnsub){
+      contactosUnsub();
+      contactosUnsub = null;
+      contactosCache = {};
+    }
+    render();
+  });
+
+  function render(){
+    contactList.innerHTML = '';
+    const filtered = searchTerm
+      ? ocupadosCache.filter(o => normalize(o.nombre).includes(searchTerm))
+      : ocupadosCache;
+
+    if (ocupadosCache.length === 0){
+      contactEmpty.hidden = false;
+      contactEmpty.textContent = 'No hay personajes ocupados todavía.';
+    } else if (filtered.length === 0){
+      contactEmpty.hidden = false;
+      contactEmpty.textContent = 'Ningún personaje coincide con tu búsqueda.';
+    } else {
+      contactEmpty.hidden = true;
+    }
+
+    filtered.forEach(o => {
+      const li = document.createElement('li');
+
+      const left = document.createElement('span');
+      left.className = 'li-left';
+      const name = document.createElement('span');
+      name.className = 'li-name';
+      name.textContent = o.nombre;
+      left.appendChild(name);
+      li.appendChild(left);
+
+      if (!isAdmin){
+        const masked = document.createElement('span');
+        masked.className = 'li-meta';
+        masked.textContent = MASK;
+        li.appendChild(masked);
+        contactList.appendChild(li);
+        return;
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'li-actions contact-edit';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Teléfono o usuario de WhatsApp';
+      input.value = contactosCache[o.id] || '';
+      input.maxLength = 60;
+
+      const save = async () => {
+        const val = input.value.trim();
+        await setDoc(doc(db, 'contactos', o.id), { contacto: val }, { merge: true });
+      };
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'icon-btn icon-btn-confirm';
+      saveBtn.textContent = 'Guardar';
+      saveBtn.addEventListener('click', save);
+
+      actions.appendChild(input);
+      actions.appendChild(saveBtn);
+      li.appendChild(actions);
+      contactList.appendChild(li);
+    });
+  }
+</script>
+
+</body>
+</html>
