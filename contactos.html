@@ -27,20 +27,26 @@
       <div class="title-wrap">
         <h1>Contactos</h1>
       </div>
-      <p class="subtitle">Vincula un teléfono o usuario de WhatsApp a cada personaje ocupado. Sin sesión de admin, esta información no se puede leer.</p>
+      <p class="subtitle">Cada miembro se identifica por su teléfono o usuario de WhatsApp, no por el personaje que lleve — así, si se va o cambia de rol, no se pierde su historial.</p>
     </div>
     <button class="admin-toggle" id="adminToggleBtn">Acceso admin</button>
   </header>
 
   <div class="search-wrap">
-    <input type="text" id="searchInput" placeholder="Buscar un personaje..." autocomplete="off">
+    <input type="text" id="searchInput" placeholder="Buscar por personaje o contacto..." autocomplete="off">
   </div>
 
   <section class="panel">
-    <h2>Personajes ocupados</h2>
-    <p class="panel-desc">A cada uno le puedes asociar un contacto único (teléfono o usuario), para identificar a la persona detrás si algún día cambia de rol o hay que aplicar una sanción.</p>
-    <ul class="simple-list" id="contactList"></ul>
-    <p class="empty-note" id="contactEmpty" hidden></p>
+    <h2>Miembros</h2>
+    <p class="panel-desc" id="panelDesc">Cada fila es una persona, con el personaje (o personajes) que ocupa ahora mismo.</p>
+    <ul class="simple-list" id="memberList"></ul>
+    <p class="empty-note" id="memberEmpty" hidden></p>
+  </section>
+
+  <section class="panel" id="unlinkedPanel" hidden>
+    <h2>Personajes sin vincular</h2>
+    <p class="panel-desc">Estos personajes están en "Ocupados" pero todavía no tienen un contacto asociado. Para crear un miembro nuevo (o añadirle otro personaje a uno ya existente), escribe su teléfono o usuario aquí.</p>
+    <ul class="simple-list" id="unlinkedList"></ul>
   </section>
 
   <footer class="status" id="statusLine"></footer>
@@ -68,7 +74,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getFirestore, collection, doc, setDoc,
+    getFirestore, collection, doc, setDoc, getDoc,
     onSnapshot, query, orderBy
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import {
@@ -119,13 +125,16 @@
   function normalize(str){
     return String(str ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
-
   function maskContacto(value){
     return String(value || '').split('').map(ch => {
       if (/[0-9]/.test(ch)) return '•';
       if (/[a-zA-ZÀ-ÿ]/.test(ch)) return 'x';
-      return ch; // espacios, +, -, @, ., _... se dejan tal cual, no revelan nada
+      return ch;
     }).join('');
+  }
+  // El propio contacto (normalizado) es el ID del documento del miembro en Firestore.
+  function memberIdFrom(contacto){
+    return String(contacto || '').trim().toLowerCase().replace(/[\/\s]+/g, '_');
   }
 
   // ---------- Admin login ----------
@@ -159,11 +168,15 @@
   });
 
   // ---------- Datos ----------
-  const contactList = $('contactList');
-  const contactEmpty = $('contactEmpty');
+  const memberList = $('memberList');
+  const memberEmpty = $('memberEmpty');
+  const unlinkedPanel = $('unlinkedPanel');
+  const unlinkedList = $('unlinkedList');
+  const panelDesc = $('panelDesc');
+
   let ocupadosCache = [];
-  let contactosCache = {};   // { [ocupadoId]: "valor de contacto" }
-  let contactosUnsub = null;
+  let miembrosCache = [];   // solo se llena estando logueado
+  let miembrosUnsub = null;
   let searchTerm = '';
 
   onSnapshot(query(collection(db, 'ocupados'), orderBy('createdAt', 'asc')),
@@ -180,40 +193,136 @@
     isAdmin = !!user;
     adminToggleBtn.textContent = isAdmin ? 'Salir del modo admin' : 'Acceso admin';
     adminToggleBtn.classList.toggle('is-admin', isAdmin);
+    unlinkedPanel.hidden = !isAdmin;
+    panelDesc.textContent = isAdmin
+      ? 'Cada fila es una persona (identificada por su contacto real), con el personaje que ocupa ahora mismo. Si no ocupa ninguno, se queda como "Sin rol actual" — su ficha no desaparece.'
+      : 'Cada fila es una persona, con el personaje (o personajes) que ocupa ahora mismo.';
 
-    if (isAdmin && !contactosUnsub){
-      contactosUnsub = onSnapshot(collection(db, 'contactos'), (snap) => {
-        contactosCache = {};
-        snap.docs.forEach(d => { contactosCache[d.id] = d.data().contacto || ''; });
+    if (isAdmin && !miembrosUnsub){
+      miembrosUnsub = onSnapshot(collection(db, 'miembros'), (snap) => {
+        miembrosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         render();
       });
-    } else if (!isAdmin && contactosUnsub){
-      contactosUnsub();
-      contactosUnsub = null;
-      contactosCache = {};
+    } else if (!isAdmin && miembrosUnsub){
+      miembrosUnsub();
+      miembrosUnsub = null;
+      miembrosCache = [];
     }
     render();
   });
 
-  function render(){
-    contactList.innerHTML = '';
-    const filtered = searchTerm
-      ? ocupadosCache.filter(o => normalize(o.nombre).includes(searchTerm))
-      : ocupadosCache;
+  // Agrupa los personajes ocupados por miembroId: { miembroId: [nombre1, nombre2, ...] }
+  function rolesPorMiembro(){
+    const map = {};
+    ocupadosCache.forEach(o => {
+      if (!o.miembroId) return;
+      if (!map[o.miembroId]) map[o.miembroId] = [];
+      map[o.miembroId].push(o.nombre);
+    });
+    return map;
+  }
 
-    if (ocupadosCache.length === 0){
-      contactEmpty.hidden = false;
-      contactEmpty.textContent = 'No hay personajes ocupados todavía.';
-    } else if (filtered.length === 0){
-      contactEmpty.hidden = false;
-      contactEmpty.textContent = 'Ningún personaje coincide con tu búsqueda.';
+  function render(){
+    const roles = rolesPorMiembro();
+
+    if (!isAdmin){
+      renderPublic(roles);
     } else {
-      contactEmpty.hidden = true;
+      renderAdmin(roles);
+      renderUnlinked();
+    }
+  }
+
+  function renderPublic(roles){
+    memberList.innerHTML = '';
+    // Solo miembros con al menos un personaje visible (con máscara pública) y con datos que coincidan la búsqueda.
+    const rows = Object.keys(roles)
+      .map(miembroId => {
+        const chars = ocupadosCache.filter(o => o.miembroId === miembroId && o.contactoMask);
+        if (!chars.length) return null;
+        return { mask: chars[0].contactoMask, roles: chars.map(c => c.nombre) };
+      })
+      .filter(Boolean);
+
+    const filtered = searchTerm
+      ? rows.filter(r => r.roles.some(n => normalize(n).includes(searchTerm)))
+      : rows;
+
+    if (rows.length === 0){
+      memberEmpty.hidden = false;
+      memberEmpty.textContent = 'Todavía no hay miembros con contacto vinculado.';
+    } else if (filtered.length === 0){
+      memberEmpty.hidden = false;
+      memberEmpty.textContent = 'Ningún resultado coincide con tu búsqueda.';
+    } else {
+      memberEmpty.hidden = true;
     }
 
-    filtered.forEach(o => {
+    filtered.forEach(r => {
       const li = document.createElement('li');
+      const left = document.createElement('span');
+      left.className = 'li-left';
+      const name = document.createElement('span');
+      name.className = 'li-name';
+      name.textContent = r.mask;
+      left.appendChild(name);
+      li.appendChild(left);
+      const meta = document.createElement('span');
+      meta.className = 'li-meta';
+      meta.textContent = 'Ocupa: ' + r.roles.join(', ');
+      li.appendChild(meta);
+      memberList.appendChild(li);
+    });
+  }
 
+  function renderAdmin(roles){
+    memberList.innerHTML = '';
+    const rows = miembrosCache.map(m => ({
+      id: m.id,
+      contacto: m.contacto || m.id,
+      apodoInterno: m.apodoInterno || '',
+      cambiosDisponibles: typeof m.cambiosDisponibles === 'number' ? m.cambiosDisponibles : 1,
+      roles: roles[m.id] || []
+    }));
+
+    const filtered = searchTerm
+      ? rows.filter(r => r.roles.some(n => normalize(n).includes(searchTerm)) || normalize(r.contacto).includes(searchTerm))
+      : rows;
+
+    if (rows.length === 0){
+      memberEmpty.hidden = false;
+      memberEmpty.textContent = 'Todavía no hay ningún miembro registrado.';
+    } else if (filtered.length === 0){
+      memberEmpty.hidden = false;
+      memberEmpty.textContent = 'Ningún resultado coincide con tu búsqueda.';
+    } else {
+      memberEmpty.hidden = true;
+    }
+
+    filtered.forEach(r => {
+      const li = document.createElement('li');
+      const left = document.createElement('span');
+      left.className = 'li-left';
+      const name = document.createElement('span');
+      name.className = 'li-name';
+      name.textContent = r.contacto;
+      left.appendChild(name);
+      li.appendChild(left);
+
+      const meta = document.createElement('span');
+      meta.className = 'li-meta';
+      const rolesTxt = r.roles.length ? r.roles.join(', ') : 'Sin rol actual';
+      meta.innerHTML = `Ocupa: <b>${escapeHtml(rolesTxt)}</b> — ${escapeHtml(r.apodoInterno)} — cambios disponibles: ${r.cambiosDisponibles}`;
+      li.appendChild(meta);
+      memberList.appendChild(li);
+    });
+  }
+
+  function renderUnlinked(){
+    unlinkedList.innerHTML = '';
+    const sinVincular = ocupadosCache.filter(o => !o.miembroId);
+    sinVincular.forEach(o => {
+      const li = document.createElement('li');
       const left = document.createElement('span');
       left.className = 'li-left';
       const name = document.createElement('span');
@@ -222,41 +331,41 @@
       left.appendChild(name);
       li.appendChild(left);
 
-      if (!isAdmin){
-        if (o.contactoMask){
-          const masked = document.createElement('span');
-          masked.className = 'li-meta';
-          masked.textContent = o.contactoMask;
-          li.appendChild(masked);
-        }
-        contactList.appendChild(li);
-        return;
-      }
-
       const actions = document.createElement('div');
       actions.className = 'li-actions contact-edit';
       const input = document.createElement('input');
       input.type = 'text';
       input.placeholder = 'Teléfono o usuario de WhatsApp';
-      input.value = contactosCache[o.id] || '';
-      input.maxLength = 60;
 
-      const save = async () => {
+      const link = async () => {
         const val = input.value.trim();
-        await setDoc(doc(db, 'contactos', o.id), { contacto: val }, { merge: true });
-        await setDoc(doc(db, 'ocupados', o.id), { contactoMask: val ? maskContacto(val) : '' }, { merge: true });
+        if (!val) return;
+        const memberId = memberIdFrom(val);
+        if (!memberId) return;
+        const memberRef = doc(db, 'miembros', memberId);
+        const existing = await getDoc(memberRef);
+        if (!existing.exists()){
+          await setDoc(memberRef, {
+            contacto: val,
+            apodoInterno: 'Miembro-' + String(miembrosCache.length + 1).padStart(3, '0'),
+            cambiosDisponibles: 1,
+            activo: true,
+            historial: []
+          });
+        }
+        await setDoc(doc(db, 'ocupados', o.id), { miembroId: memberId, contactoMask: maskContacto(val) }, { merge: true });
       };
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); link(); } });
 
-      const saveBtn = document.createElement('button');
-      saveBtn.className = 'icon-btn icon-btn-confirm';
-      saveBtn.textContent = 'Guardar';
-      saveBtn.addEventListener('click', save);
+      const linkBtn = document.createElement('button');
+      linkBtn.className = 'icon-btn icon-btn-confirm';
+      linkBtn.textContent = 'Vincular';
+      linkBtn.addEventListener('click', link);
 
       actions.appendChild(input);
-      actions.appendChild(saveBtn);
+      actions.appendChild(linkBtn);
       li.appendChild(actions);
-      contactList.appendChild(li);
+      unlinkedList.appendChild(li);
     });
   }
 </script>
