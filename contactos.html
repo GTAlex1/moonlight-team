@@ -74,8 +74,8 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getFirestore, collection, doc, setDoc, getDoc,
-    onSnapshot, query, orderBy
+    getFirestore, collection, doc, setDoc, getDoc, deleteDoc, updateDoc, deleteField,
+    onSnapshot, query, orderBy, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import {
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
@@ -137,6 +137,92 @@
     return String(contacto || '').trim().toLowerCase().replace(/[\/\s]+/g, '_');
   }
 
+  function orderComparator(a, b){
+    const av = typeof a.orden === 'number' ? a.orden : Infinity;
+    const bv = typeof b.orden === 'number' ? b.orden : Infinity;
+    if (av !== bv) return av - bv;
+    const at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+    const bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+    return at - bt;
+  }
+  function nextOrden(cache){
+    if (!cache.length) return 1000;
+    const max = Math.max(...cache.map(i => typeof i.orden === 'number' ? i.orden : 0));
+    return max + 1000;
+  }
+  function backfillOrden(collectionName, cache){
+    const missing = cache.filter(i => typeof i.orden !== 'number');
+    if (!missing.length) return;
+    const byCreated = [...cache].sort((a, b) => {
+      const at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return at - bt;
+    });
+    byCreated.forEach((item, idx) => {
+      if (typeof item.orden !== 'number'){
+        updateDoc(doc(db, collectionName, item.id), { orden: (idx + 1) * 1000 }).catch(() => {});
+      }
+    });
+  }
+  function makeHandle(draggable){
+    const h = document.createElement('span');
+    h.className = 'handle' + (draggable ? ' draggable' : '');
+    h.textContent = '✦';
+    return h;
+  }
+  function enableDragReorder(listEl, collectionName, getCache){
+    listEl.addEventListener('pointerdown', (e) => {
+      const handle = e.target.closest('.handle');
+      if (!handle || !handle.classList.contains('draggable')) return;
+      const li = handle.closest('li');
+      if (!li) return;
+      e.preventDefault();
+      li.classList.add('dragging');
+
+      const onMove = (ev) => {
+        const y = ev.clientY;
+        const siblings = [...listEl.querySelectorAll('li:not(.dragging)')];
+        let target = null;
+        for (const sib of siblings){
+          const rect = sib.getBoundingClientRect();
+          if (y < rect.top + rect.height / 2){ target = sib; break; }
+        }
+        if (target) listEl.insertBefore(li, target);
+        else listEl.appendChild(li);
+      };
+
+      const onUp = async () => {
+        li.classList.remove('dragging');
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+
+        const ids = [...listEl.querySelectorAll('li')].map(x => x.dataset.id);
+        const cache = getCache();
+        const movedId = li.dataset.id;
+        const newIndex = ids.indexOf(movedId);
+        const prevItem = cache.find(i => i.id === ids[newIndex - 1]);
+        const nextItem = cache.find(i => i.id === ids[newIndex + 1]);
+        const prevOrden = prevItem && typeof prevItem.orden === 'number' ? prevItem.orden : null;
+        const nextOrdenVal = nextItem && typeof nextItem.orden === 'number' ? nextItem.orden : null;
+
+        let newOrden;
+        if (prevOrden == null && nextOrdenVal == null) newOrden = 1000;
+        else if (prevOrden == null) newOrden = nextOrdenVal - 1000;
+        else if (nextOrdenVal == null) newOrden = prevOrden + 1000;
+        else newOrden = (prevOrden + nextOrdenVal) / 2;
+
+        try {
+          await updateDoc(doc(db, collectionName, movedId), { orden: newOrden });
+        } catch (e) {
+          statusLine.textContent = 'No se pudo guardar el nuevo orden.';
+        }
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  }
+
   // ---------- Admin login ----------
   let isAdmin = false;
   const adminToggleBtn = $('adminToggleBtn');
@@ -177,6 +263,7 @@
   let ocupadosCache = [];
   let miembrosCache = [];   // solo se llena estando logueado
   let miembrosUnsub = null;
+  enableDragReorder(memberList, 'miembros', () => miembrosCache);
   let searchTerm = '';
 
   onSnapshot(query(collection(db, 'ocupados'), orderBy('createdAt', 'asc')),
@@ -201,6 +288,7 @@
     if (isAdmin && !miembrosUnsub){
       miembrosUnsub = onSnapshot(collection(db, 'miembros'), (snap) => {
         miembrosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        backfillOrden('miembros', miembrosCache);
         render();
       });
     } else if (!isAdmin && miembrosUnsub){
@@ -210,6 +298,20 @@
     }
     render();
   });
+
+  // Al borrar un miembro, sus personajes vuelven a "sin vincular" en vez de quedarse
+  // con una máscara pública apuntando a nadie.
+  async function removeMember(memberId){
+    const linked = ocupadosCache.filter(o => o.miembroId === memberId);
+    try {
+      await Promise.all(linked.map(o =>
+        updateDoc(doc(db, 'ocupados', o.id), { miembroId: deleteField(), contactoMask: deleteField() })
+      ));
+      await deleteDoc(doc(db, 'miembros', memberId));
+    } catch (e) {
+      statusLine.textContent = 'No se pudo eliminar el miembro, inténtalo de nuevo.';
+    }
+  }
 
   // Agrupa los personajes ocupados por miembroId: { miembroId: [nombre1, nombre2, ...] }
   function rolesPorMiembro(){
@@ -277,7 +379,8 @@
 
   function renderAdmin(roles){
     memberList.innerHTML = '';
-    const rows = miembrosCache.map(m => ({
+    const sorted = [...miembrosCache].sort(orderComparator);
+    const rows = sorted.map(m => ({
       id: m.id,
       contacto: m.contacto || m.id,
       apodoInterno: m.apodoInterno || '',
@@ -301,19 +404,36 @@
 
     filtered.forEach(r => {
       const li = document.createElement('li');
+      li.dataset.id = r.id;
+
       const left = document.createElement('span');
       left.className = 'li-left';
-      const name = document.createElement('span');
+      left.appendChild(makeHandle(!searchTerm));
+
+      const textWrap = document.createElement('div');
+      const name = document.createElement('div');
       name.className = 'li-name';
       name.textContent = r.contacto;
-      left.appendChild(name);
-      li.appendChild(left);
+      textWrap.appendChild(name);
 
-      const meta = document.createElement('span');
+      const meta = document.createElement('div');
       meta.className = 'li-meta';
       const rolesTxt = r.roles.length ? r.roles.join(', ') : 'Sin rol actual';
       meta.innerHTML = `Ocupa: <b>${escapeHtml(rolesTxt)}</b> — ${escapeHtml(r.apodoInterno)} — cambios disponibles: ${r.cambiosDisponibles}`;
-      li.appendChild(meta);
+      textWrap.appendChild(meta);
+
+      left.appendChild(textWrap);
+      li.appendChild(left);
+
+      const actions = document.createElement('div');
+      actions.className = 'li-actions';
+      const delBtn = document.createElement('button');
+      delBtn.className = 'icon-btn';
+      delBtn.textContent = 'Quitar';
+      delBtn.addEventListener('click', () => removeMember(r.id));
+      actions.appendChild(delBtn);
+      li.appendChild(actions);
+
       memberList.appendChild(li);
     });
   }
@@ -350,7 +470,9 @@
             apodoInterno: 'Miembro-' + String(miembrosCache.length + 1).padStart(3, '0'),
             cambiosDisponibles: 1,
             activo: true,
-            historial: []
+            historial: [],
+            orden: nextOrden(miembrosCache),
+            createdAt: serverTimestamp()
           });
         }
         await setDoc(doc(db, 'ocupados', o.id), { miembroId: memberId, contactoMask: maskContacto(val) }, { merge: true });
