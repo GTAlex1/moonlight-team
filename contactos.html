@@ -170,6 +170,35 @@
     h.textContent = '✦';
     return h;
   }
+
+  function makeStepper(label, value, onChange){
+    const wrap = document.createElement('span');
+    wrap.className = 'stepper';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'stepper-label';
+    lbl.textContent = label + ':';
+
+    const minusBtn = document.createElement('button');
+    minusBtn.className = 'icon-btn stepper-btn';
+    minusBtn.textContent = '−';
+    minusBtn.type = 'button';
+
+    const valSpan = document.createElement('span');
+    valSpan.className = 'stepper-value';
+    valSpan.textContent = value;
+
+    const plusBtn = document.createElement('button');
+    plusBtn.className = 'icon-btn stepper-btn icon-btn-confirm';
+    plusBtn.textContent = '+';
+    plusBtn.type = 'button';
+
+    minusBtn.addEventListener('click', () => onChange(Math.max(0, value - 1)));
+    plusBtn.addEventListener('click', () => onChange(value + 1));
+
+    wrap.append(lbl, minusBtn, valSpan, plusBtn);
+    return wrap;
+  }
   function enableDragReorder(listEl, collectionName, getCache){
     listEl.addEventListener('pointerdown', (e) => {
       const handle = e.target.closest('.handle');
@@ -385,7 +414,9 @@
       contacto: m.contacto || m.id,
       apodoInterno: m.apodoInterno || '',
       cambiosDisponibles: typeof m.cambiosDisponibles === 'number' ? m.cambiosDisponibles : 1,
-      roles: roles[m.id] || []
+      salidasDisponibles: typeof m.salidasDisponibles === 'number' ? m.salidasDisponibles : 1,
+      roles: roles[m.id] || [],
+      historialPersonajes: Array.isArray(m.historialPersonajes) ? m.historialPersonajes : []
     }));
 
     const filtered = searchTerm
@@ -419,8 +450,22 @@
       const meta = document.createElement('div');
       meta.className = 'li-meta';
       const rolesTxt = r.roles.length ? r.roles.join(', ') : 'Sin rol actual';
-      meta.innerHTML = `Ocupa: <b>${escapeHtml(rolesTxt)}</b> — ${escapeHtml(r.apodoInterno)} — cambios disponibles: ${r.cambiosDisponibles}`;
+      const pastNames = [...new Set(r.historialPersonajes.map(h => h.nombre))].filter(n => !r.roles.includes(n));
+      let metaHtml = `Ocupa: <b>${escapeHtml(rolesTxt)}</b>`;
+      if (pastNames.length) metaHtml += ` — Ocupaba: ${escapeHtml(pastNames.join(', '))}`;
+      metaHtml += ` — ${escapeHtml(r.apodoInterno)}`;
+      meta.innerHTML = metaHtml;
       textWrap.appendChild(meta);
+
+      const steppers = document.createElement('div');
+      steppers.className = 'stepper-row';
+      steppers.appendChild(makeStepper('Cambios', r.cambiosDisponibles, (val) =>
+        updateDoc(doc(db, 'miembros', r.id), { cambiosDisponibles: val })
+      ));
+      steppers.appendChild(makeStepper('Salidas', r.salidasDisponibles, (val) =>
+        updateDoc(doc(db, 'miembros', r.id), { salidasDisponibles: val })
+      ));
+      textWrap.appendChild(steppers);
 
       left.appendChild(textWrap);
       li.appendChild(left);
@@ -469,6 +514,7 @@
             contacto: val,
             apodoInterno: 'Miembro-' + String(miembrosCache.length + 1).padStart(3, '0'),
             cambiosDisponibles: 1,
+            salidasDisponibles: 1,
             activo: true,
             historial: [],
             orden: nextOrden(miembrosCache),

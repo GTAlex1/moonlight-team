@@ -544,6 +544,40 @@
   .li-edit-form-wide{ flex-wrap: wrap; }
   .li-edit-form-wide input{ min-width: 110px; }
 
+  .contact-edit input{
+    width: 220px;
+    padding: 6px 8px;
+    font-size: 0.92rem;
+  }
+
+  .stepper-row{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 4px;
+  }
+  .stepper{
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .stepper-label{
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+  }
+  .stepper-btn{
+    padding: 2px 8px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+  .stepper-value{
+    min-width: 1.4em;
+    text-align: center;
+    font-weight: 600;
+    color: var(--ink);
+    font-size: 0.9rem;
+  }
+
   .handle{
     color: var(--gold-dim);
     user-select: none;

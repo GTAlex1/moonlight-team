@@ -122,7 +122,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getFirestore, collection, addDoc, deleteDoc, doc, updateDoc,
+    getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, arrayUnion,
     onSnapshot, query, orderBy, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import {
@@ -257,6 +257,29 @@
     btn.className = 'icon-btn';
     btn.textContent = 'Quitar';
     btn.addEventListener('click', () => deleteDoc(doc(db, collectionName, id)));
+    return btn;
+  }
+
+  // Al quitar un ocupado que tenía un miembro vinculado, se guarda en su ficha de
+  // Contactos que "ocupaba" ese personaje, antes de borrar el documento.
+  function makeDeleteOcupadoBtn(item){
+    const btn = document.createElement('button');
+    btn.className = 'icon-btn';
+    btn.textContent = 'Quitar';
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        if (item.miembroId){
+          await updateDoc(doc(db, 'miembros', item.miembroId), {
+            historialPersonajes: arrayUnion({ nombre: item.nombre, fecha: new Date().toISOString() })
+          });
+        }
+        await deleteDoc(doc(db, 'ocupados', item.id));
+      } catch (e) {
+        statusLine.textContent = 'No se pudo quitar, inténtalo de nuevo.';
+        btn.disabled = false;
+      }
+    });
     return btn;
   }
 
@@ -411,7 +434,9 @@
           if (collectionName === 'ocupados' && item.origenBuscado){
             actions.appendChild(makeActionBtn('Liberar', () => restoreToBuscados(item)));
           }
-          actions.appendChild(makeDeleteBtn(collectionName, item.id));
+          actions.appendChild(
+            collectionName === 'ocupados' ? makeDeleteOcupadoBtn(item) : makeDeleteBtn(collectionName, item.id)
+          );
           li.appendChild(actions);
         }
         listEl.appendChild(li);
