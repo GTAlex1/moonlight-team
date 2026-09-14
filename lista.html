@@ -464,6 +464,12 @@
       }
     });
     await deleteDoc(doc(db, 'buscados', buscado.id));
+
+    const otros = buscadosCache.filter(x => x.id !== buscado.id && normalize(x.nombre) === normalize(buscado.nombre));
+    if (otros.length){
+      const quienes = otros.map(x => x.pedidoPor).join(', ');
+      statusLine.textContent = `Ojo: ${otros.length} solicitud(es) más de "${buscado.nombre}" siguen pendientes (${quienes}).`;
+    }
   }
 
   // Un ocupado que venía de un buscado queda libre: vuelve a buscados con los datos originales, sin volver a escribirlos
@@ -589,12 +595,14 @@
       }
 
       const fechaTxt = isAdmin && r.fecha ? formatFecha(r.fecha) : null;
+      const dupCount = buscadosCache.filter(x => normalize(x.nombre) === normalize(r.nombre)).length;
+      const dupBadge = dupCount > 1 ? `<span class="dup-badge">${dupCount} personas lo piden</span>` : '';
       const content = document.createElement('div');
       content.className = 'li-left';
       content.appendChild(makeHandle());
       const textWrap = document.createElement('div');
       textWrap.innerHTML = `
-        <div class="li-name">${escapeHtml(r.nombre)}</div>
+        <div class="li-name">${escapeHtml(r.nombre)}${dupBadge}</div>
         <div class="li-meta">Lo pide <b>${escapeHtml(r.pedidoPor)}</b> — ${escapeHtml(r.motivo)}</div>
         ${fechaTxt ? `<div class="li-meta li-admin-only">Solicitado el ${escapeHtml(fechaTxt)}</div>` : ''}
       `;
