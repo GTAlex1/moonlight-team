@@ -389,6 +389,7 @@
   // ---------- Genérico: lista simple (ocupados / reservados) ----------
   function setupSimpleList(collectionName, listEl, emptyEl, emptyText){
     let cache = [];
+    let editingId = null;
     onSnapshot(query(collection(db, collectionName), orderBy('createdAt', 'asc')),
       (snap) => {
         cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -420,6 +421,41 @@
         const li = document.createElement('li');
         li.dataset.id = item.id;
 
+        if (collectionName === 'ocupados' && editingId === item.id){
+          const form = document.createElement('div');
+          form.className = 'li-edit-form';
+          const inp = document.createElement('input');
+          inp.type = 'text'; inp.maxLength = 40; inp.value = item.nombre; inp.placeholder = 'Personaje';
+          form.appendChild(inp);
+          li.appendChild(form);
+          const acts = document.createElement('div');
+          acts.className = 'li-actions';
+          acts.appendChild(makeActionBtn('Guardar', async () => {
+            const nombre = inp.value.trim();
+            if (!nombre) return;
+            if (nombre !== item.nombre){
+              if (item.miembroId){
+                await updateDoc(doc(db, 'miembros', item.miembroId), {
+                  historialPersonajes: arrayUnion({ nombre: item.nombre, fecha: new Date().toISOString() })
+                });
+              }
+              await updateDoc(doc(db, 'ocupados', item.id), { nombre });
+            }
+            editingId = null;
+            paint();
+          }));
+          const cancel = document.createElement('button');
+          cancel.className = 'icon-btn';
+          cancel.textContent = 'Cancelar';
+          cancel.addEventListener('click', () => { editingId = null; paint(); });
+          acts.appendChild(cancel);
+          li.appendChild(acts);
+          listEl.appendChild(li);
+          inp.focus();
+          inp.addEventListener('keydown', (e) => { if (e.key === 'Enter'){ e.preventDefault(); acts.firstChild.click(); } });
+          return;
+        }
+
         const left = document.createElement('span');
         left.className = 'li-left';
         left.appendChild(makeHandle());
@@ -431,6 +467,9 @@
         if (isAdmin){
           const actions = document.createElement('div');
           actions.className = 'li-actions';
+          if (collectionName === 'ocupados'){
+            actions.appendChild(makeActionBtn('Cambiar', async () => { editingId = item.id; paint(); }, 'icon-btn-edit'));
+          }
           if (collectionName === 'ocupados' && item.origenBuscado){
             actions.appendChild(makeActionBtn('Liberar', () => restoreToBuscados(item)));
           }
