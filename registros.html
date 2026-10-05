@@ -227,7 +227,9 @@
     const al = miembros.find(m => (m.aliasesChat || []).includes(k)); if (al) return al.id;
     const t = k.split('|').map(s => s.trim());
     const o = ocupados.find(o => o.miembroId && t.includes(chatKey(o.nombre)));
-    return o ? o.miembroId : null;
+    if (o) return o.miembroId;
+    const h = miembros.find(m => (m.historialPersonajes || []).some(x => t.includes(chatKey(x.nombre))));
+    return h ? h.id : null;
   }
 
   $('fileIn').addEventListener('change', async (ev) => {

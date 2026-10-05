@@ -33,7 +33,7 @@
   </header>
 
   <div class="search-wrap">
-    <input type="text" id="searchInput" placeholder="Buscar por personaje o contacto..." autocomplete="off">
+    <input type="text" id="searchInput" placeholder="Buscar por personaje (actual o anterior) o contacto..." autocomplete="off">
   </div>
 
   <section class="panel">
@@ -420,7 +420,7 @@
     }));
 
     const filtered = searchTerm
-      ? rows.filter(r => r.roles.some(n => normalize(n).includes(searchTerm)) || normalize(r.contacto).includes(searchTerm))
+      ? rows.filter(r => r.roles.some(n => normalize(n).includes(searchTerm)) || normalize(r.contacto).includes(searchTerm) || normalize(r.apodoInterno).includes(searchTerm) || r.historialPersonajes.some(h => normalize(h.nombre).includes(searchTerm)))
       : rows;
 
     if (rows.length === 0){
