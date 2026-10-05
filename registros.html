@@ -53,6 +53,7 @@
     <p class="summary" id="summary"></p>
     <ul class="simple-list" id="topList"></ul>
     <p class="empty-note" id="emptyNote" hidden>Todavía no hay registros guardados.</p>
+    <div class="li-actions" style="margin-top:12px"><button class="icon-btn icon-btn-confirm" id="pngBtn" type="button" hidden>Descargar top 10 como imagen</button></div>
   </section>
 
   <section class="panel" id="fullPanel" hidden>
@@ -128,7 +129,7 @@
   const lbl = (m) => m.apodoInterno || m.contacto || m.id;
 
   // <PARSE>
-  const CORR = [['kazus','Kazuha|Shogun'],['mary','Wriotheslay'],['lynn','Xiao'],['erisboreasgreyratt','Qiqi'],['miyako','Yae Miko']];
+  const CORR = [['kazus','Kazuha|Shogun'],['mary','Wriothesley'],['lynn','Xiao'],['erisboreasgreyratt','Qiqi'],['miyako','Yae Miko']];
   const simp = (s) => String(s ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   function chatKey(raw){
     const k = simp(raw).replace(/\s*\/\s*moo?nlight\s*$/, '').replace(/[^\p{L}\p{N}|]+/gu, ' ').trim();
@@ -201,6 +202,7 @@
     $('olderBtn').disabled = idx < 0 || idx >= registros.length - 1;
     $('newerBtn').disabled = idx <= 0;
     $('emptyNote').hidden = !!r;
+    $('pngBtn').hidden = !r;
     $('topList').innerHTML = ''; $('fullList').innerHTML = '';
     $('summary').textContent = '';
     if (!r) return;
@@ -220,6 +222,48 @@
   $('delMonthBtn').addEventListener('click', async () => {
     if (!current || !confirm('¿Borrar el registro de ' + mesLabel(current) + '?')) return;
     try { await deleteDoc(doc(db, 'registros', current)); } catch (e) { status('No se pudo borrar.'); }
+  });
+
+  // ---------- Exportar top 10 como imagen (siempre con nombres públicos) ----------
+  $('pngBtn').addEventListener('click', async () => {
+    const r = registros.find(x => x.id === current); if (!r) return;
+    try { await document.fonts.ready; } catch (e) {}
+    const rows = [...r.entradas].sort((a, b) => b.mensajes - a.mensajes).slice(0, 10);
+    const W = 1080, H = 230 + rows.length * 92 + 60, S = 2;
+    const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S;
+    const x = cv.getContext('2d'); x.scale(S, S);
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#151b34'); g.addColorStop(1, '#090c1a');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    const SERIF = "'Crimson Pro', Georgia, serif", DISP = "'Cormorant', Georgia, serif";
+    x.textBaseline = 'alphabetic';
+    x.fillStyle = '#d9c383'; x.font = `600 62px ${DISP}`; x.fillText('Moonlight Team', 70, 100);
+    x.fillStyle = '#eef0fb'; x.font = `500 38px ${DISP}`;
+    x.fillText('Top 10 · ' + mesLabel(r.id), 70, 152);
+    x.fillStyle = '#a3adce'; x.font = `400 26px ${SERIF}`;
+    x.fillText(`${fmt(r.total)} mensajes en total · ${r.entradas.length} participantes`, 70, 194);
+    rows.forEach((e, i) => {
+      const y = 250 + i * 92;
+      x.fillStyle = '#d9c383'; x.font = `600 40px ${DISP}`; x.textAlign = 'center'; x.fillText(String(i + 1), 90, y + 34);
+      x.textAlign = 'left'; x.fillStyle = '#eef0fb'; x.font = `600 32px ${SERIF}`;
+      let name = pubLabel(e); const maxW = 600;
+      while (x.measureText(name).width > maxW && name.length > 3) name = name.slice(0, -2);
+      if (name !== pubLabel(e)) name = name.trimEnd() + '…';
+      x.fillText(name, 140, y + 30);
+      x.textAlign = 'right'; x.fillStyle = '#d9c383'; x.font = `600 32px ${SERIF}`;
+      x.fillText(pct(e.mensajes, r.total), W - 70, y + 30);
+      x.fillStyle = '#a3adce'; x.font = `400 22px ${SERIF}`;
+      x.fillText(fmt(e.mensajes) + ' mensajes', W - 70, y + 58);
+      x.textAlign = 'left';
+      const bw = 600; x.fillStyle = 'rgba(255,255,255,0.08)'; x.fillRect(140, y + 46, bw, 8);
+      const gr = x.createLinearGradient(140, 0, 140 + bw, 0); gr.addColorStop(0, '#8f8256'); gr.addColorStop(1, '#d9c383');
+      x.fillStyle = gr; x.fillRect(140, y + 46, Math.max(3, bw * e.mensajes / r.total), 8);
+    });
+    cv.toBlob((blob) => {
+      if (!blob) { status('No se pudo crear la imagen.'); return; }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'top10-' + r.id + '.png'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, 'image/png');
   });
 
   // ---------- Importar ----------
