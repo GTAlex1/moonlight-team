@@ -16,6 +16,7 @@
   .month-nav{display:flex;gap:8px;align-items:center;margin:6px 0 14px}
   .month-nav select{flex:1;min-width:0;text-transform:capitalize}
   .summary{color:var(--ink-soft);margin:0 0 12px}
+  .ch-a{color:#7fae72}.ch-aba{color:#d9c383}
   .rank{width:28px;flex:none;text-align:center;color:var(--gold);font-family:'Cormorant',serif;font-size:1.3rem}
   .bar{height:5px;border-radius:4px;background:rgba(255,255,255,.07);margin-top:6px;overflow:hidden}
   .bar i{display:block;height:100%;min-width:3px;background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
@@ -58,7 +59,7 @@
 
   <section class="panel" id="fullPanel" hidden>
     <h2>Lista completa</h2>
-    <p class="panel-desc">Solo admin: todas las personas del mes, con su contacto real.</p>
+    <p class="panel-desc">Solo admin: todas las personas del mes, con su contacto real. <span class="ch-a">a.</span> = ocupa · <span class="ch-aba">aba.</span> = ocupaba.</p>
     <ul class="simple-list" id="fullList"></ul>
     <div class="li-actions" style="margin-top:12px"><button class="icon-btn icon-btn-confirm" id="pngFullBtn" type="button">Descargar lista completa como imagen</button> <button class="icon-btn" id="delMonthBtn" type="button">Borrar este mes</button></div>
   </section>
@@ -127,6 +128,14 @@
   const pct = (n, t) => (t ? n / t * 100 : 0).toLocaleString('es-ES', { maximumFractionDigits: 1 }) + ' %';
   const maskContacto = (v) => String(v || '').split('').map(c => /[0-9]/.test(c) ? '•' : /[a-zA-ZÀ-ÿ]/.test(c) ? 'x' : c).join('');
   const lbl = (m) => m.apodoInterno || m.contacto || m.id;
+  // Personajes de un miembro: a. = ocupa ahora, aba. = ocupaba
+  function charParts(m){
+    const cur = ocupados.filter(o => o.miembroId === m.id).map(o => o.nombre);
+    const past = [...new Set((m.historialPersonajes || []).map(x => x.nombre))];
+    return [...cur.map(n => ['a.' + n, 'a']), ...past.map(n => ['aba.' + n, 'aba'])];
+  }
+  const lblFull = (m) => { const p = charParts(m).map(x => x[0]).join(' / '); return lbl(m) + (p ? ' - ' + p : ''); };
+  const charsHtml = (m) => charParts(m).map(([t, k]) => `<span class="ch-${k}">${esc(t)}</span>`).join(' / ');
 
   // <PARSE>
   const CORR = [['kazus','Kazuha|Shogun'],['mary','Wriothesley'],['lynn','Xiao'],['erisboreasgreyratt','Qiqi'],['miyako','Yae Miko']];
@@ -188,7 +197,7 @@
     const li = document.createElement('li');
     li.style.cssText = 'display:flex;gap:10px;align-items:flex-start';
     li.innerHTML = `<span class="rank">${rank}</span><div style="flex:1;min-width:0">
-      <div class="li-name">${esc(m ? lbl(m) : pubLabel(e))}${m ? ` <span class="li-admin-only">· ${esc(pubLabel(e))}</span>` : ''}</div>
+      <div class="li-name">${m ? esc(lbl(m)) + (charParts(m).length ? ' - ' + charsHtml(m) : ` <span class="li-admin-only">· ${esc(pubLabel(e))}</span>`) : esc(pubLabel(e))}</div>
       <div class="li-meta">tiene un <b>${pct(e.mensajes, total)}</b> de los mensajes totales de este mes · ${fmt(e.mensajes)} mensajes (${fmt(e.multimedia || 0)} multimedia)</div>
       <div class="bar" title="${pct(e.mensajes, total)} del total del mes"><i style="width:${total ? e.mensajes / total * 100 : 0}%${e.mensajes ? '' : ';min-width:0'}"></i></div></div>`;
     return li;
@@ -246,11 +255,22 @@
       x.fillStyle = '#d9c383'; x.font = `600 40px ${DISP}`; x.textAlign = 'center'; x.fillText(String(i + 1), 90, y + 34);
       x.textAlign = 'left'; x.fillStyle = '#eef0fb'; x.font = `600 32px ${SERIF}`;
       const mm = full && isAdmin && e.miembroId ? miembros.find(z => z.id === e.miembroId) : null;
-      const full0 = mm ? lbl(mm) + ' · ' + pubLabel(e) : pubLabel(e);
-      let name = full0; const maxW = 600;
-      while (x.measureText(name).width > maxW && name.length > 3) name = name.slice(0, -2);
-      if (name !== full0) name = name.trimEnd() + '…';
-      x.fillText(name, 140, y + 30);
+      const W0 = '#eef0fb', G0 = '#a3adce', parts = [];
+      if (mm){
+        parts.push([lbl(mm), W0]);
+        const cp = charParts(mm);
+        if (cp.length){ parts.push([' - ', G0]); cp.forEach(([t, k], n) => { if (n) parts.push([' / ', G0]); parts.push([t, k === 'a' ? '#7fae72' : '#d9c383']); }); }
+        else parts.push([' · ' + pubLabel(e), G0]);
+      } else parts.push([pubLabel(e), W0]);
+      let px = 140; const maxW = 600;
+      for (const [t, col] of parts){
+        let s = t; x.fillStyle = col;
+        if (px - 140 + x.measureText(s).width > maxW){
+          while (s.length > 1 && px - 140 + x.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+          x.fillText(s + '…', px, y + 30); break;
+        }
+        x.fillText(s, px, y + 30); px += x.measureText(s).width;
+      }
       x.textAlign = 'right'; x.fillStyle = '#d9c383'; x.font = `600 32px ${SERIF}`;
       x.fillText(pct(e.mensajes, r.total), W - 70, y + 30);
       x.fillStyle = '#a3adce'; x.font = `400 22px ${SERIF}`;
@@ -292,7 +312,7 @@
     const box = $('importOut'); box.innerHTML = '';
     const ids = Object.keys(pending).sort();
     if (!ids.length){ box.innerHTML = '<p class="empty-note">No encontré mensajes en ese archivo.</p>'; return; }
-    const opts = [...miembros].sort((a, b) => lbl(a).localeCompare(lbl(b))).map(m => `<option value="${esc(m.id)}">${esc(lbl(m))}</option>`).join('');
+    const opts = [...miembros].sort((a, b) => lbl(a).localeCompare(lbl(b))).map(m => `<option value="${esc(m.id)}">${esc(lblFull(m))}</option>`).join('');
     ids.forEach(id => {
       const rows = Object.entries(pending[id]).sort((a, b) => b[1].n - a[1].n);
       const sec = document.createElement('div');
@@ -360,7 +380,7 @@
     $('fullPanel').hidden = $('importPanel').hidden = !isAdmin;
     if (isAdmin && !unsubM){
       unsubM = onSnapshot(collection(db, 'miembros'), (s) => { miembros = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
-      unsubO = onSnapshot(collection(db, 'ocupados'), (s) => { ocupados = s.docs.map(d => ({ id: d.id, ...d.data() })); });
+      unsubO = onSnapshot(collection(db, 'ocupados'), (s) => { ocupados = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
     } else if (!isAdmin && unsubM){
       unsubM(); unsubO(); unsubM = unsubO = null; miembros = []; ocupados = []; $('importOut').innerHTML = '';
     }
