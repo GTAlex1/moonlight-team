@@ -60,7 +60,7 @@
     <h2>Lista completa</h2>
     <p class="panel-desc">Solo admin: todas las personas del mes, con su contacto real.</p>
     <ul class="simple-list" id="fullList"></ul>
-    <div class="li-actions" style="margin-top:12px"><button class="icon-btn" id="delMonthBtn" type="button">Borrar este mes</button></div>
+    <div class="li-actions" style="margin-top:12px"><button class="icon-btn icon-btn-confirm" id="pngFullBtn" type="button">Descargar lista completa como imagen</button> <button class="icon-btn" id="delMonthBtn" type="button">Borrar este mes</button></div>
   </section>
 
   <section class="panel" id="importPanel" hidden>
@@ -225,10 +225,10 @@
   });
 
   // ---------- Exportar top 10 como imagen (siempre con nombres públicos) ----------
-  $('pngBtn').addEventListener('click', async () => {
+  async function exportPng(full){
     const r = registros.find(x => x.id === current); if (!r) return;
     try { await document.fonts.ready; } catch (e) {}
-    const rows = [...r.entradas].sort((a, b) => b.mensajes - a.mensajes).slice(0, 10);
+    const rows = [...r.entradas].sort((a, b) => b.mensajes - a.mensajes).slice(0, full ? 999 : 10);
     const W = 1080, H = 230 + rows.length * 92 + 60, S = 2;
     const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S;
     const x = cv.getContext('2d'); x.scale(S, S);
@@ -238,16 +238,18 @@
     x.textBaseline = 'alphabetic';
     x.fillStyle = '#d9c383'; x.font = `600 62px ${DISP}`; x.fillText('Moonlight Team', 70, 100);
     x.fillStyle = '#eef0fb'; x.font = `500 38px ${DISP}`;
-    x.fillText('Top 10 · ' + mesLabel(r.id), 70, 152);
+    x.fillText((full ? 'Lista completa · ' : 'Top 10 · ') + mesLabel(r.id), 70, 152);
     x.fillStyle = '#a3adce'; x.font = `400 26px ${SERIF}`;
     x.fillText(`${fmt(r.total)} mensajes en total · ${r.entradas.length} participantes · ${fmt(r.totalMedia || 0)} multimedia`, 70, 194);
     rows.forEach((e, i) => {
       const y = 250 + i * 92;
       x.fillStyle = '#d9c383'; x.font = `600 40px ${DISP}`; x.textAlign = 'center'; x.fillText(String(i + 1), 90, y + 34);
       x.textAlign = 'left'; x.fillStyle = '#eef0fb'; x.font = `600 32px ${SERIF}`;
-      let name = pubLabel(e); const maxW = 600;
+      const mm = full && isAdmin && e.miembroId ? miembros.find(z => z.id === e.miembroId) : null;
+      const full0 = mm ? lbl(mm) + ' · ' + pubLabel(e) : pubLabel(e);
+      let name = full0; const maxW = 600;
       while (x.measureText(name).width > maxW && name.length > 3) name = name.slice(0, -2);
-      if (name !== pubLabel(e)) name = name.trimEnd() + '…';
+      if (name !== full0) name = name.trimEnd() + '…';
       x.fillText(name, 140, y + 30);
       x.textAlign = 'right'; x.fillStyle = '#d9c383'; x.font = `600 32px ${SERIF}`;
       x.fillText(pct(e.mensajes, r.total), W - 70, y + 30);
@@ -261,10 +263,12 @@
     cv.toBlob((blob) => {
       if (!blob) { status('No se pudo crear la imagen.'); return; }
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = 'top10-' + r.id + '.png'; document.body.appendChild(a); a.click(); a.remove();
+      a.download = (full ? 'completo-' : 'top10-') + r.id + '.png'; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }, 'image/png');
-  });
+  }
+  $('pngBtn').addEventListener('click', () => exportPng(false));
+  $('pngFullBtn').addEventListener('click', () => exportPng(true));
 
   // ---------- Importar ----------
   function autoMatch(k){
