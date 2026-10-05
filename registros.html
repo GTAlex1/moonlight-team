@@ -189,7 +189,7 @@
     li.style.cssText = 'display:flex;gap:10px;align-items:flex-start';
     li.innerHTML = `<span class="rank">${rank}</span><div style="flex:1;min-width:0">
       <div class="li-name">${esc(m ? lbl(m) : pubLabel(e))}${m ? ` <span class="li-admin-only">· ${esc(pubLabel(e))}</span>` : ''}</div>
-      <div class="li-meta">tiene un <b>${pct(e.mensajes, total)}</b> de los mensajes totales de este mes · ${fmt(e.mensajes)} mensajes</div>
+      <div class="li-meta">tiene un <b>${pct(e.mensajes, total)}</b> de los mensajes totales de este mes · ${fmt(e.mensajes)} mensajes (${fmt(e.multimedia || 0)} multimedia)</div>
       <div class="bar" title="${pct(e.mensajes, total)} del total del mes"><i style="width:${total ? e.mensajes / total * 100 : 0}%${e.mensajes ? '' : ';min-width:0'}"></i></div></div>`;
     return li;
   }
@@ -207,7 +207,7 @@
     $('summary').textContent = '';
     if (!r) return;
     const sorted = [...r.entradas].sort((a, b) => b.mensajes - a.mensajes), max = sorted[0]?.mensajes || 0;
-    $('summary').textContent = `${fmt(r.total)} mensajes en ${mesLabel(r.id)} · ${sorted.length} participantes`;
+    $('summary').textContent = `${fmt(r.total)} mensajes en ${mesLabel(r.id)} · ${sorted.length} participantes · ${fmt(r.totalMedia || 0)} multimedia`;
     sorted.slice(0, 10).forEach((e, i) => $('topList').appendChild(rowLi(e, i + 1, r.total, max)));
     if (isAdmin){
       sorted.forEach((e, i) => $('fullList').appendChild(rowLi(e, i + 1, r.total, max)));
@@ -240,7 +240,7 @@
     x.fillStyle = '#eef0fb'; x.font = `500 38px ${DISP}`;
     x.fillText('Top 10 · ' + mesLabel(r.id), 70, 152);
     x.fillStyle = '#a3adce'; x.font = `400 26px ${SERIF}`;
-    x.fillText(`${fmt(r.total)} mensajes en total · ${r.entradas.length} participantes`, 70, 194);
+    x.fillText(`${fmt(r.total)} mensajes en total · ${r.entradas.length} participantes · ${fmt(r.totalMedia || 0)} multimedia`, 70, 194);
     rows.forEach((e, i) => {
       const y = 250 + i * 92;
       x.fillStyle = '#d9c383'; x.font = `600 40px ${DISP}`; x.textAlign = 'center'; x.fillText(String(i + 1), 90, y + 34);
@@ -252,7 +252,7 @@
       x.textAlign = 'right'; x.fillStyle = '#d9c383'; x.font = `600 32px ${SERIF}`;
       x.fillText(pct(e.mensajes, r.total), W - 70, y + 30);
       x.fillStyle = '#a3adce'; x.font = `400 22px ${SERIF}`;
-      x.fillText(fmt(e.mensajes) + ' mensajes', W - 70, y + 58);
+      x.fillText(fmt(e.mensajes) + ' mensajes · ' + fmt(e.multimedia || 0) + ' multimedia', W - 70, y + 58);
       x.textAlign = 'left';
       const bw = 600; x.fillStyle = 'rgba(255,255,255,0.08)'; x.fillRect(140, y + 46, bw, 8);
       const gr = x.createLinearGradient(140, 0, 140 + bw, 0); gr.addColorStop(0, '#8f8256'); gr.addColorStop(1, '#d9c383');
