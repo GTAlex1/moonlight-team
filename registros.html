@@ -18,7 +18,7 @@
   .summary{color:var(--ink-soft);margin:0 0 12px}
   .rank{width:28px;flex:none;text-align:center;color:var(--gold);font-family:'Cormorant',serif;font-size:1.3rem}
   .bar{height:5px;border-radius:4px;background:rgba(255,255,255,.07);margin-top:6px;overflow:hidden}
-  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
+  .bar i{display:block;height:100%;min-width:3px;background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
   .imp-month{margin:16px 0 6px;color:var(--gold);font-family:'Cormorant',serif;font-size:1.3rem;text-transform:capitalize}
   .imp-row{display:grid;grid-template-columns:1fr 64px 1.4fr;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
   .imp-row.warn select{border-color:var(--danger)}
@@ -189,7 +189,7 @@
     li.innerHTML = `<span class="rank">${rank}</span><div style="flex:1;min-width:0">
       <div class="li-name">${esc(m ? lbl(m) : pubLabel(e))}${m ? ` <span class="li-admin-only">· ${esc(pubLabel(e))}</span>` : ''}</div>
       <div class="li-meta">tiene un <b>${pct(e.mensajes, total)}</b> de los mensajes totales de este mes · ${fmt(e.mensajes)} mensajes</div>
-      <div class="bar"><i style="width:${max ? e.mensajes / max * 100 : 0}%"></i></div></div>`;
+      <div class="bar" title="${pct(e.mensajes, total)} del total del mes"><i style="width:${total ? e.mensajes / total * 100 : 0}%${e.mensajes ? '' : ';min-width:0'}"></i></div></div>`;
     return li;
   }
 
