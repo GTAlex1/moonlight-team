@@ -168,6 +168,8 @@
   let ocupadosCache = [];
   let miembrosCache = [];
   let unsubOcupados = null;
+  let buscadosCache = [];
+  let unsubBuscados = null;
   let unsubMiembros = null;
   let searchTerm = '';
 
@@ -193,10 +195,14 @@
         ocupadosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         render();
       });
+      unsubBuscados = onSnapshot(collection(db, 'buscados'), (snap) => {
+        buscadosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      });
     } else if (!isAdmin && unsubMiembros){
       unsubMiembros(); unsubMiembros = null;
       unsubOcupados(); unsubOcupados = null;
-      miembrosCache = []; ocupadosCache = [];
+      if (unsubBuscados){ unsubBuscados(); unsubBuscados = null; }
+      miembrosCache = []; ocupadosCache = []; buscadosCache = [];
     }
     render();
   });
@@ -216,6 +222,11 @@
     const nuevoTotal = (typeof m.warnsTotal === 'number' ? m.warnsTotal : 0) + cantidad;
     if (nuevoTotal >= WARN_LIMIT && !m.baneado){
       const ocupadosDelMiembro = ocupadosCache.filter(o => o.miembroId === m.id);
+      // Solicitudes pendientes (Buscados) hechas por este miembro: se quitan también
+      const nombresPide = new Set([m.contacto, m.id].concat(ocupadosDelMiembro.map(o => o.origenBuscado && o.origenBuscado.pedidoPor)).filter(Boolean).map(normalize));
+      for (const b of buscadosCache.filter(b => b.pedidoPorId === m.id || nombresPide.has(normalize(b.pedidoPor)))){
+        await deleteDoc(doc(db, 'buscados', b.id));
+      }
       for (const o of ocupadosDelMiembro){
         await updateDoc(memberRef, {
           historialPersonajes: arrayUnion({ nombre: o.nombre, fecha: new Date().toISOString() })
@@ -237,7 +248,8 @@
       warnsTotal: typeof m.warnsTotal === 'number' ? m.warnsTotal : 0,
       warns: Array.isArray(m.warns) ? m.warns : [],
       baneado: !!m.baneado,
-      roles: rolesDe(m.id)
+      roles: rolesDe(m.id),
+      pasados: [...new Set((Array.isArray(m.historialPersonajes) ? m.historialPersonajes : []).map(h => h.nombre))]
     }));
 
     const filtered = searchTerm
@@ -268,8 +280,9 @@
 
       const meta = document.createElement('div');
       meta.className = 'li-meta';
-      const rolesTxt = r.roles.length ? r.roles.join(', ') : 'Sin rol actual';
-      meta.innerHTML = `Ocupa: <b>${escapeHtml(rolesTxt)}</b> — warns: ${r.warnsTotal}/${WARN_LIMIT}`;
+      const rolesTxt = r.roles.length ? r.roles.join(', ') : (r.baneado && r.pasados.length ? r.pasados.join(', ') : 'Sin rol actual');
+      const etiqueta = (!r.roles.length && r.baneado && r.pasados.length) ? 'Ocupaba' : 'Ocupa';
+      meta.innerHTML = `${etiqueta}: <b>${escapeHtml(rolesTxt)}</b> — warns: ${r.warnsTotal}/${WARN_LIMIT}`;
       left.appendChild(meta);
 
       if (r.warns.length){
