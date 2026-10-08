@@ -137,6 +137,26 @@
     return String(contacto || '').trim().toLowerCase().replace(/[\/\s]+/g, '_');
   }
 
+
+  // ---------- Edad (límite: se expulsa al cumplir 19) ----------
+  function edadInfo(nac){
+    if (!nac) return null;
+    const [y, mo, d] = nac.split('-').map(Number);
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    let edad = hoy.getFullYear() - y;
+    if (hoy < new Date(hoy.getFullYear(), mo - 1, d)) edad--;
+    const dias = Math.ceil((new Date(y + 19, mo - 1, d) - hoy) / 864e5);
+    return { edad, dias };
+  }
+  function edadTxt(nac){
+    const i = edadInfo(nac);
+    if (!i) return { html: '<span style="color:var(--danger,#e66)">Falta fecha de nacimiento</span>', nivel: 'falta' };
+    if (i.dias <= 0) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — toca expulsar (19)</b>`, nivel: 'expulsar' };
+    if (i.edad < 18) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — menor de 18</b>`, nivel: 'menor' };
+    if (i.dias <= 30) return { html: `<b style="color:#e0b45a">${i.edad} años — cumple 19 en ${i.dias} día${i.dias === 1 ? '' : 's'}</b>`, nivel: 'pronto' };
+    return { html: `${i.edad} años`, nivel: 'ok' };
+  }
+
   function orderComparator(a, b){
     const av = typeof a.orden === 'number' ? a.orden : Infinity;
     const bv = typeof b.orden === 'number' ? b.orden : Infinity;
@@ -413,6 +433,7 @@
       id: m.id,
       contacto: m.contacto || m.id,
       apodoInterno: m.apodoInterno || '',
+      nacimiento: m.nacimiento || '',
       cambiosDisponibles: typeof m.cambiosDisponibles === 'number' ? m.cambiosDisponibles : 1,
       salidasDisponibles: typeof m.salidasDisponibles === 'number' ? m.salidasDisponibles : 1,
       roles: roles[m.id] || [],
@@ -456,6 +477,17 @@
       metaHtml += ` — ${escapeHtml(r.apodoInterno)}`;
       meta.innerHTML = metaHtml;
       textWrap.appendChild(meta);
+
+      const nacRow = document.createElement('div');
+      nacRow.className = 'li-meta';
+      const nacInput = document.createElement('input');
+      nacInput.type = 'date'; nacInput.value = r.nacimiento;
+      nacInput.style.cssText = 'width:auto;padding:3px 6px;font-size:0.88rem;margin-right:8px';
+      const nacTxt = document.createElement('span');
+      nacTxt.innerHTML = edadTxt(r.nacimiento).html;
+      nacInput.addEventListener('change', () => updateDoc(doc(db, 'miembros', r.id), { nacimiento: nacInput.value || deleteField() }));
+      nacRow.append('Nació: ', nacInput, nacTxt);
+      textWrap.appendChild(nacRow);
 
       const steppers = document.createElement('div');
       steppers.className = 'stepper-row';
@@ -501,6 +533,8 @@
       const input = document.createElement('input');
       input.type = 'text';
       input.placeholder = 'Teléfono o usuario de WhatsApp';
+      const nacNuevo = document.createElement('input');
+      nacNuevo.type = 'date'; nacNuevo.title = 'Fecha de nacimiento (obligatoria si es miembro nuevo)';
 
       const link = async () => {
         const val = input.value.trim();
@@ -510,8 +544,10 @@
         const memberRef = doc(db, 'miembros', memberId);
         const existing = await getDoc(memberRef);
         if (!existing.exists()){
+          if (!nacNuevo.value){ nacNuevo.focus(); statusLine.textContent = 'Para crear un miembro nuevo hace falta su fecha de nacimiento.'; return; }
           await setDoc(memberRef, {
             contacto: val,
+            nacimiento: nacNuevo.value,
             apodoInterno: 'Miembro-' + String(miembrosCache.length + 1).padStart(3, '0'),
             cambiosDisponibles: 1,
             salidasDisponibles: 1,
@@ -531,6 +567,7 @@
       linkBtn.addEventListener('click', link);
 
       actions.appendChild(input);
+      actions.appendChild(nacNuevo);
       actions.appendChild(linkBtn);
       li.appendChild(actions);
       unlinkedList.appendChild(li);

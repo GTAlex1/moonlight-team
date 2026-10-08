@@ -41,6 +41,7 @@
   <section class="panel" id="sancionesPanel" hidden>
     <h2>Miembros</h2>
     <p class="panel-desc">Cada warn necesita un motivo. Puedes poner más de 1 warn de golpe si el motivo lo merece — al llegar a 3, se expulsa automáticamente.</p>
+    <div id="edadAviso" class="li-meta" hidden></div>
     <ul class="simple-list" id="memberList"></ul>
     <p class="empty-note" id="memberEmpty" hidden></p>
   </section>
@@ -207,6 +208,26 @@
     render();
   });
 
+
+  // ---------- Edad (límite: se expulsa al cumplir 19) ----------
+  function edadInfo(nac){
+    if (!nac) return null;
+    const [y, mo, d] = nac.split('-').map(Number);
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    let edad = hoy.getFullYear() - y;
+    if (hoy < new Date(hoy.getFullYear(), mo - 1, d)) edad--;
+    const dias = Math.ceil((new Date(y + 19, mo - 1, d) - hoy) / 864e5);
+    return { edad, dias };
+  }
+  function edadTxt(nac){
+    const i = edadInfo(nac);
+    if (!i) return { html: '<span style="color:var(--danger,#e66)">Falta fecha de nacimiento</span>', nivel: 'falta' };
+    if (i.dias <= 0) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — toca expulsar (19)</b>`, nivel: 'expulsar' };
+    if (i.edad < 18) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — menor de 18</b>`, nivel: 'menor' };
+    if (i.dias <= 30) return { html: `<b style="color:#e0b45a">${i.edad} años — cumple 19 en ${i.dias} día${i.dias === 1 ? '' : 's'}</b>`, nivel: 'pronto' };
+    return { html: `${i.edad} años`, nivel: 'ok' };
+  }
+
   function rolesDe(miembroId){
     return ocupadosCache.filter(o => o.miembroId === miembroId).map(o => o.nombre);
   }
@@ -248,6 +269,7 @@
       warnsTotal: typeof m.warnsTotal === 'number' ? m.warnsTotal : 0,
       warns: Array.isArray(m.warns) ? m.warns : [],
       baneado: !!m.baneado,
+      nacimiento: m.nacimiento || '',
       roles: rolesDe(m.id),
       pasados: [...new Set((Array.isArray(m.historialPersonajes) ? m.historialPersonajes : []).map(h => h.nombre))]
     }));
@@ -265,6 +287,17 @@
     } else {
       memberEmpty.hidden = true;
     }
+
+    const aviso = $('edadAviso');
+    const activos = rows.filter(r => !r.baneado);
+    const toca = activos.filter(r => edadTxt(r.nacimiento).nivel === 'expulsar');
+    const pronto = activos.filter(r => edadTxt(r.nacimiento).nivel === 'pronto');
+    const falta = activos.filter(r => !r.nacimiento).length;
+    let av = '';
+    if (toca.length) av += `<div style="color:var(--danger,#e66)"><b>Toca expulsar por edad (19):</b> ${toca.map(r => escapeHtml(r.contacto)).join(', ')}</div>`;
+    if (pronto.length) av += `<div style="color:#e0b45a">Cumplen 19 en 30 días o menos: ${pronto.map(r => escapeHtml(r.contacto)).join(', ')}</div>`;
+    if (falta) av += `<div>${falta} sin fecha de nacimiento (se rellena en Contactos).</div>`;
+    aviso.innerHTML = av; aviso.hidden = !av;
 
     filtered.forEach(r => {
       const li = document.createElement('li');
@@ -284,6 +317,27 @@
       const etiqueta = (!r.roles.length && r.baneado && r.pasados.length) ? 'Ocupaba' : 'Ocupa';
       meta.innerHTML = `${etiqueta}: <b>${escapeHtml(rolesTxt)}</b> — warns: ${r.warnsTotal}/${WARN_LIMIT}`;
       left.appendChild(meta);
+
+      if (!r.baneado){
+        const ed = edadTxt(r.nacimiento);
+        const edRow = document.createElement('div');
+        edRow.className = 'li-meta';
+        edRow.innerHTML = ed.html;
+        if (ed.nivel === 'expulsar'){
+          const ageBtn = document.createElement('button');
+          ageBtn.className = 'icon-btn';
+          ageBtn.style.marginLeft = '10px';
+          ageBtn.textContent = 'Expulsar por edad';
+          ageBtn.addEventListener('click', async () => {
+            if (!confirm(`¿Expulsar a ${r.contacto} por cumplir 19 años? Se le aplica sanción de nivel 3.`)) return;
+            ageBtn.disabled = true;
+            try { await aplicarWarn(r, '19 años', WARN_LIMIT); }
+            catch (e) { statusLine.textContent = 'No se pudo expulsar, inténtalo de nuevo.'; ageBtn.disabled = false; }
+          });
+          edRow.appendChild(ageBtn);
+        }
+        left.appendChild(edRow);
+      }
 
       if (r.warns.length){
         const historial = document.createElement('div');
