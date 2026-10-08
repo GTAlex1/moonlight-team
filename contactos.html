@@ -435,7 +435,7 @@
       apodoInterno: m.apodoInterno || '',
       nacimiento: m.nacimiento || '',
       cambiosDisponibles: typeof m.cambiosDisponibles === 'number' ? m.cambiosDisponibles : 1,
-      salidasDisponibles: typeof m.salidasDisponibles === 'number' ? m.salidasDisponibles : 1,
+      salidasDisponibles: typeof m.salidasDisponibles === 'number' ? m.salidasDisponibles : 3,
       roles: roles[m.id] || [],
       historialPersonajes: Array.isArray(m.historialPersonajes) ? m.historialPersonajes : []
     }));
@@ -550,7 +550,7 @@
             nacimiento: nacNuevo.value,
             apodoInterno: 'Miembro-' + String(miembrosCache.length + 1).padStart(3, '0'),
             cambiosDisponibles: 1,
-            salidasDisponibles: 1,
+            salidasDisponibles: 3,
             activo: true,
             historial: [],
             orden: nextOrden(miembrosCache),
