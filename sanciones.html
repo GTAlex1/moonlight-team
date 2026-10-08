@@ -223,8 +223,8 @@
     const i = edadInfo(nac);
     if (!i && !ocupa) return { html: '', nivel: 'ok' };
     if (!i) return { html: '<span style="color:var(--danger,#e66)">Falta fecha de nacimiento</span>', nivel: 'falta' };
-    if (i.dias <= 0) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — toca expulsar (19)</b>`, nivel: 'expulsar' };
-    if (i.edad < 18) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — menor de 18</b>`, nivel: 'menor' };
+    if (i.edad < 14) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — menor de 14, toca expulsar</b>`, nivel: 'expulsar', motivo: 'Menor de 14 años' };
+    if (i.dias <= 0) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — toca expulsar (19)</b>`, nivel: 'expulsar', motivo: '19 años' };
     if (i.dias <= 30) return { html: `<b style="color:#e0b45a">${i.edad} años — cumple 19 en ${i.dias} día${i.dias === 1 ? '' : 's'}</b>`, nivel: 'pronto' };
     return { html: `${i.edad} años`, nivel: 'ok' };
   }
@@ -262,9 +262,10 @@
 
   async function expulsarPorEdad(r, btn){
     const nombre = r.roles.length ? r.roles.join(', ') : r.contacto;
-    if (!confirm(`¿Expulsar a ${nombre} por cumplir 19 años? Se le aplica sanción de nivel 3.`)) return;
+    const motivo = edadTxt(r.nacimiento).motivo || '19 años';
+    if (!confirm(`¿Expulsar a ${nombre} por «${motivo}»? Se le aplica sanción de nivel 3.`)) return;
     btn.disabled = true;
-    try { await aplicarWarn(r, '19 años', WARN_LIMIT); }
+    try { await aplicarWarn(r, motivo, WARN_LIMIT); }
     catch (e) { statusLine.textContent = 'No se pudo expulsar, inténtalo de nuevo.'; btn.disabled = false; }
   }
 
@@ -307,13 +308,13 @@
     if (toca.length){
       const h = document.createElement('div');
       h.style.color = 'var(--danger,#e66)';
-      h.innerHTML = '<b>Toca expulsar por edad (19):</b>';
+      h.innerHTML = '<b>Toca expulsar por edad:</b>';
       aviso.appendChild(h);
       toca.forEach(r => {
         const line = document.createElement('div');
         line.style.cssText = 'display:flex;align-items:center;gap:10px;margin:4px 0';
         const nm = document.createElement('span');
-        nm.innerHTML = `<b>${escapeHtml(quien(r))}</b>`;
+        nm.innerHTML = `<b>${escapeHtml(quien(r))}</b> — ${escapeHtml(edadTxt(r.nacimiento).motivo)}`;
         const b = document.createElement('button');
         b.className = 'icon-btn';
         b.textContent = 'Expulsar';

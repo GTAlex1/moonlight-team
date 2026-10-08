@@ -152,8 +152,8 @@
     const i = edadInfo(nac);
     if (!i && !ocupa) return { html: '', nivel: 'ok' };
     if (!i) return { html: '<span style="color:var(--danger,#e66)">Falta fecha de nacimiento</span>', nivel: 'falta' };
-    if (i.dias <= 0) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — toca expulsar (19)</b>`, nivel: 'expulsar' };
-    if (i.edad < 18) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — menor de 18</b>`, nivel: 'menor' };
+    if (i.edad < 14) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — menor de 14, toca expulsar</b>`, nivel: 'expulsar', motivo: 'Menor de 14 años' };
+    if (i.dias <= 0) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — toca expulsar (19)</b>`, nivel: 'expulsar', motivo: '19 años' };
     if (i.dias <= 30) return { html: `<b style="color:#e0b45a">${i.edad} años — cumple 19 en ${i.dias} día${i.dias === 1 ? '' : 's'}</b>`, nivel: 'pronto' };
     return { html: `${i.edad} años`, nivel: 'ok' };
   }
