@@ -259,6 +259,14 @@
     }
   }
 
+  async function expulsarPorEdad(r, btn){
+    const nombre = r.roles.length ? r.roles.join(', ') : r.contacto;
+    if (!confirm(`¿Expulsar a ${nombre} por cumplir 19 años? Se le aplica sanción de nivel 3.`)) return;
+    btn.disabled = true;
+    try { await aplicarWarn(r, '19 años', WARN_LIMIT); }
+    catch (e) { statusLine.textContent = 'No se pudo expulsar, inténtalo de nuevo.'; btn.disabled = false; }
+  }
+
   function render(){
     if (!isAdmin) return;
     memberList.innerHTML = '';
@@ -293,11 +301,38 @@
     const toca = activos.filter(r => edadTxt(r.nacimiento).nivel === 'expulsar');
     const pronto = activos.filter(r => edadTxt(r.nacimiento).nivel === 'pronto');
     const falta = activos.filter(r => !r.nacimiento).length;
-    let av = '';
-    if (toca.length) av += `<div style="color:var(--danger,#e66)"><b>Toca expulsar por edad (19):</b> ${toca.map(r => escapeHtml(r.contacto)).join(', ')}</div>`;
-    if (pronto.length) av += `<div style="color:#e0b45a">Cumplen 19 en 30 días o menos: ${pronto.map(r => escapeHtml(r.contacto)).join(', ')}</div>`;
-    if (falta) av += `<div>${falta} sin fecha de nacimiento (se rellena en Contactos).</div>`;
-    aviso.innerHTML = av; aviso.hidden = !av;
+    const quien = (r) => r.roles.length ? r.roles.join(', ') : (r.pasados.length ? r.pasados.join(', ') : r.contacto);
+    aviso.innerHTML = '';
+    if (toca.length){
+      const h = document.createElement('div');
+      h.style.color = 'var(--danger,#e66)';
+      h.innerHTML = '<b>Toca expulsar por edad (19):</b>';
+      aviso.appendChild(h);
+      toca.forEach(r => {
+        const line = document.createElement('div');
+        line.style.cssText = 'display:flex;align-items:center;gap:10px;margin:4px 0';
+        const nm = document.createElement('span');
+        nm.innerHTML = `<b>${escapeHtml(quien(r))}</b>`;
+        const b = document.createElement('button');
+        b.className = 'icon-btn';
+        b.textContent = 'Expulsar';
+        b.addEventListener('click', () => expulsarPorEdad(r, b));
+        line.append(nm, b);
+        aviso.appendChild(line);
+      });
+    }
+    if (pronto.length){
+      const d = document.createElement('div');
+      d.style.color = '#e0b45a';
+      d.textContent = 'Cumplen 19 en 30 días o menos: ' + pronto.map(quien).join(' · ');
+      aviso.appendChild(d);
+    }
+    if (falta){
+      const d = document.createElement('div');
+      d.textContent = `${falta} sin fecha de nacimiento (se rellena en Contactos).`;
+      aviso.appendChild(d);
+    }
+    aviso.hidden = !aviso.childNodes.length;
 
     filtered.forEach(r => {
       const li = document.createElement('li');
@@ -328,12 +363,7 @@
           ageBtn.className = 'icon-btn';
           ageBtn.style.marginLeft = '10px';
           ageBtn.textContent = 'Expulsar por edad';
-          ageBtn.addEventListener('click', async () => {
-            if (!confirm(`¿Expulsar a ${r.contacto} por cumplir 19 años? Se le aplica sanción de nivel 3.`)) return;
-            ageBtn.disabled = true;
-            try { await aplicarWarn(r, '19 años', WARN_LIMIT); }
-            catch (e) { statusLine.textContent = 'No se pudo expulsar, inténtalo de nuevo.'; ageBtn.disabled = false; }
-          });
+          ageBtn.addEventListener('click', () => expulsarPorEdad(r, ageBtn));
           edRow.appendChild(ageBtn);
         }
         left.appendChild(edRow);
