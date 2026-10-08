@@ -148,8 +148,9 @@
     const dias = Math.ceil((new Date(y + 19, mo - 1, d) - hoy) / 864e5);
     return { edad, dias };
   }
-  function edadTxt(nac){
+  function edadTxt(nac, ocupa = true){
     const i = edadInfo(nac);
+    if (!i && !ocupa) return { html: '', nivel: 'ok' };
     if (!i) return { html: '<span style="color:var(--danger,#e66)">Falta fecha de nacimiento</span>', nivel: 'falta' };
     if (i.dias <= 0) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — toca expulsar (19)</b>`, nivel: 'expulsar' };
     if (i.edad < 18) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — menor de 18</b>`, nivel: 'menor' };
@@ -508,7 +509,7 @@
       const nacRow = document.createElement('div');
       nacRow.className = 'li-meta';
       const nacTxt = document.createElement('span');
-      nacTxt.innerHTML = edadTxt(r.nacimiento).html;
+      nacTxt.innerHTML = edadTxt(r.nacimiento, r.roles.length > 0).html;
       const nacInput = makeNacField(r.nacimiento, (v) => { if (v !== r.nacimiento) updateDoc(doc(db, 'miembros', r.id), { nacimiento: v }); });
       nacRow.append('Nació: ', nacInput, nacTxt);
       textWrap.appendChild(nacRow);

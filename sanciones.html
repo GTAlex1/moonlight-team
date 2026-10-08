@@ -219,8 +219,9 @@
     const dias = Math.ceil((new Date(y + 19, mo - 1, d) - hoy) / 864e5);
     return { edad, dias };
   }
-  function edadTxt(nac){
+  function edadTxt(nac, ocupa = true){
     const i = edadInfo(nac);
+    if (!i && !ocupa) return { html: '', nivel: 'ok' };
     if (!i) return { html: '<span style="color:var(--danger,#e66)">Falta fecha de nacimiento</span>', nivel: 'falta' };
     if (i.dias <= 0) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — toca expulsar (19)</b>`, nivel: 'expulsar' };
     if (i.edad < 18) return { html: `<b style="color:var(--danger,#e66)">${i.edad} años — menor de 18</b>`, nivel: 'menor' };
@@ -300,7 +301,7 @@
     const activos = rows.filter(r => !r.baneado);
     const toca = activos.filter(r => edadTxt(r.nacimiento).nivel === 'expulsar');
     const pronto = activos.filter(r => edadTxt(r.nacimiento).nivel === 'pronto');
-    const falta = activos.filter(r => !r.nacimiento).length;
+    const falta = activos.filter(r => !r.nacimiento && r.roles.length).length;
     const quien = (r) => r.roles.length ? r.roles.join(', ') : (r.pasados.length ? r.pasados.join(', ') : r.contacto);
     aviso.innerHTML = '';
     if (toca.length){
@@ -354,7 +355,7 @@
       left.appendChild(meta);
 
       if (!r.baneado){
-        const ed = edadTxt(r.nacimiento);
+        const ed = edadTxt(r.nacimiento, r.roles.length > 0);
         const edRow = document.createElement('div');
         edRow.className = 'li-meta';
         edRow.innerHTML = ed.html;
@@ -366,7 +367,7 @@
           ageBtn.addEventListener('click', () => expulsarPorEdad(r, ageBtn));
           edRow.appendChild(ageBtn);
         }
-        left.appendChild(edRow);
+        if (ed.html) left.appendChild(edRow);
       }
 
       if (r.warns.length){
