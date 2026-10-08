@@ -157,6 +157,33 @@
     return { html: `${i.edad} años`, nivel: 'ok' };
   }
 
+  // Fecha de nacimiento como dd / mm / 20aa (solo se teclean 2 cifras del año)
+  function makeNacField(iso, onCommit){
+    const w = document.createElement('span');
+    w.style.cssText = 'display:inline-flex;align-items:center;gap:2px;margin-right:8px';
+    const mk = (ph) => { const i = document.createElement('input'); i.type = 'text'; i.inputMode = 'numeric'; i.maxLength = 2; i.placeholder = ph; i.autocomplete = 'off'; i.style.cssText = 'width:2.6em;padding:3px 4px;font-size:0.88rem;text-align:center'; return i; };
+    const sep = (t) => { const e = document.createElement('span'); e.textContent = t; return e; };
+    const dd = mk('dd'), mm = mk('mm'), yy = mk('aa');
+    w.append(dd, sep('/'), mm, sep('/20'), yy);
+    if (iso && iso.startsWith('20')){ const [y, m, d] = iso.split('-'); dd.value = d; mm.value = m; yy.value = y.slice(2); }
+    w.getISO = () => {
+      if (dd.value.length !== 2 || mm.value.length !== 2 || yy.value.length !== 2) return '';
+      const y = 2000 + Number(yy.value), m = Number(mm.value), d = Number(dd.value);
+      const dt = new Date(y, m - 1, d);
+      if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return '';
+      return `${y}-${mm.value}-${dd.value}`;
+    };
+    const els = [dd, mm, yy];
+    els.forEach((el, i) => el.addEventListener('input', () => {
+      el.value = el.value.replace(/\D/g, '');
+      if (el.value.length === 2 && els[i + 1]) els[i + 1].focus();
+      const full = els.every(x => x.value.length === 2), v = w.getISO();
+      els.forEach(x => x.style.borderColor = (full && !v) ? 'var(--danger,#e66)' : '');
+      if (v && onCommit) onCommit(v);
+    }));
+    return w;
+  }
+
   function orderComparator(a, b){
     const av = typeof a.orden === 'number' ? a.orden : Infinity;
     const bv = typeof b.orden === 'number' ? b.orden : Infinity;
@@ -480,12 +507,9 @@
 
       const nacRow = document.createElement('div');
       nacRow.className = 'li-meta';
-      const nacInput = document.createElement('input');
-      nacInput.type = 'date'; nacInput.value = r.nacimiento;
-      nacInput.style.cssText = 'width:auto;padding:3px 6px;font-size:0.88rem;margin-right:8px';
       const nacTxt = document.createElement('span');
       nacTxt.innerHTML = edadTxt(r.nacimiento).html;
-      nacInput.addEventListener('change', () => updateDoc(doc(db, 'miembros', r.id), { nacimiento: nacInput.value || deleteField() }));
+      const nacInput = makeNacField(r.nacimiento, (v) => { if (v !== r.nacimiento) updateDoc(doc(db, 'miembros', r.id), { nacimiento: v }); });
       nacRow.append('Nació: ', nacInput, nacTxt);
       textWrap.appendChild(nacRow);
 
@@ -533,8 +557,8 @@
       const input = document.createElement('input');
       input.type = 'text';
       input.placeholder = 'Teléfono o usuario de WhatsApp';
-      const nacNuevo = document.createElement('input');
-      nacNuevo.type = 'date'; nacNuevo.title = 'Fecha de nacimiento (obligatoria si es miembro nuevo)';
+      const nacNuevo = makeNacField('');
+      nacNuevo.title = 'Fecha de nacimiento (obligatoria si es miembro nuevo)';
 
       const link = async () => {
         const val = input.value.trim();
@@ -544,10 +568,11 @@
         const memberRef = doc(db, 'miembros', memberId);
         const existing = await getDoc(memberRef);
         if (!existing.exists()){
-          if (!nacNuevo.value){ nacNuevo.focus(); statusLine.textContent = 'Para crear un miembro nuevo hace falta su fecha de nacimiento.'; return; }
+          const nacISO = nacNuevo.getISO();
+          if (!nacISO){ nacNuevo.querySelector('input').focus(); statusLine.textContent = 'Para crear un miembro nuevo hace falta su fecha de nacimiento.'; return; }
           await setDoc(memberRef, {
             contacto: val,
-            nacimiento: nacNuevo.value,
+            nacimiento: nacISO,
             apodoInterno: 'Miembro-' + String(miembrosCache.length + 1).padStart(3, '0'),
             cambiosDisponibles: 1,
             salidasDisponibles: 3,
