@@ -38,6 +38,7 @@
     </div>
     <div class="admin-actions">
       <button class="admin-toggle" id="exportBtn" hidden>Copiar para WhatsApp</button>
+      <button class="admin-toggle" id="exportBuscImgBtn" hidden>Buscados en imagen</button>
       <button class="admin-toggle" id="adminToggleBtn">Acceso admin</button>
     </div>
   </header>
@@ -213,6 +214,7 @@
     $('reservadoAdminForm').hidden = !isAdmin;
     $('buscadoAdminForm').hidden = !isAdmin;
     $('exportBtn').hidden = !isAdmin;
+    $('exportBuscImgBtn').hidden = !isAdmin;
     paintOcupados();
     paintReservados();
     paintBuscados();
@@ -617,11 +619,7 @@
     return dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  function paintBuscados(){
-    buscadosList.innerHTML = '';
-    allCaches.buscados = buscadosCache;
-    updateLastUpdated();
-    // Una tarjeta por personaje; cada petición (quién lo pide y por qué) va por separado dentro
+  function groupBuscados(){
     const tms = (x) => x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Number.MAX_SAFE_INTEGER;
     const map = new Map();
     [...buscadosCache].sort((a, b) => tms(a) - tms(b)).forEach(r => {
@@ -629,7 +627,102 @@
       if (!map.has(k)) map.set(k, []);
       map.get(k).push(r);
     });
-    const groups = [...map.values()].sort((a, b) => orderComparator(a[0], b[0]));
+    return [...map.values()].sort((a, b) => orderComparator(a[0], b[0]));
+  }
+
+  // ---------- Buscados en imagen (solo admin, sin la fecha admin-only) ----------
+  async function exportBuscadosImage(){
+    const groups = groupBuscados();
+    if (!groups.length){ statusLine.textContent = 'No hay buscados que exportar.'; return; }
+    try { await Promise.all([document.fonts.load("600 30px 'Crimson Pro'"), document.fonts.load("400 22px 'Crimson Pro'"), document.fonts.load("italic 600 64px 'Cormorant'")]); } catch (e) {}
+    const W = 1080, pad = 56, cardX = pad, cardW = W - pad * 2, inX = cardX + 70, inW = cardW - 70 - 28;
+    const SERIF = "'Crimson Pro', Georgia, serif", COR = "'Cormorant', Georgia, serif";
+    const mc = document.createElement('canvas').getContext('2d');
+    const font = (b) => `${b ? 600 : 400} 23px ${SERIF}`;
+    // Ajuste de línea con partes en negrita y normales
+    const wrap = (r) => {
+      const toks = [];
+      [['Lo pide ', false], [r.pedidoPor, true], [' — ' + r.motivo, false]].forEach(([t, b]) => t.split(/(\s+)/).forEach(w => { if (w) toks.push({ w, b }); }));
+      const lines = [[]]; let x = 0;
+      toks.forEach(tk => {
+        mc.font = font(tk.b);
+        const wd = mc.measureText(tk.w).width;
+        if (x + wd > inW && !/^\s+$/.test(tk.w) && lines[lines.length - 1].length){ lines.push([]); x = 0; }
+        if (/^\s+$/.test(tk.w) && !lines[lines.length - 1].length) return;
+        lines[lines.length - 1].push({ ...tk, wd }); x += wd;
+      });
+      return lines;
+    };
+    const LH = 31;
+    const cards = groups.map(items => {
+      const reqs = items.map(r => ({ lines: wrap(r) }));
+      const h = 24 + 44 + reqs.reduce((a, q) => a + q.lines.length * LH + 18, 0) + 6;
+      return { items, reqs, h };
+    });
+    const head = 170, foot = 70;
+    const H = head + cards.reduce((a, c) => a + c.h + 18, 0) + foot;
+    const k = Math.max(0.6, Math.min(2, Math.sqrt(16e6 / (W * H))));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+    const c = cv.getContext('2d'); c.scale(k, k);
+    const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0e1326'); bg.addColorStop(1, '#090c1a');
+    c.fillStyle = bg; c.fillRect(0, 0, W, H);
+    const glow = c.createRadialGradient(W * .85, 0, 0, W * .85, 0, Math.max(W, H) * .5);
+    glow.addColorStop(0, 'rgba(217,195,131,0.2)'); glow.addColorStop(1, 'rgba(217,195,131,0)');
+    c.fillStyle = glow; c.fillRect(0, 0, W, H);
+    let seed = 777; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < Math.round(W * H / 9000); i++){
+      c.fillStyle = `rgba(255,255,255,${(0.2 + rnd() * 0.7).toFixed(2)})`;
+      c.beginPath(); c.arc(rnd() * W, rnd() * H, 0.5 + rnd(), 0, 7); c.fill();
+    }
+    c.textBaseline = 'alphabetic';
+    c.fillStyle = '#eef0fb'; c.font = `italic 600 66px ${COR}`; c.fillText('Se buscan', pad, 92);
+    c.fillStyle = '#8f8256'; c.font = `italic 22px ${COR}`; c.fillText('Moonlight Team 🌙', pad + 2, 128);
+    const rr = (x, y, w, h, r) => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); };
+    let y = head;
+    cards.forEach(cd => {
+      rr(cardX, y, cardW, cd.h, 8); c.fillStyle = 'rgba(30,39,71,0.78)'; c.fill();
+      c.strokeStyle = 'rgba(197,209,255,0.2)'; c.lineWidth = 1.2; c.stroke();
+      c.fillStyle = '#8f8256'; c.font = `26px ${SERIF}`; c.fillText('✦', cardX + 24, y + 52);
+      c.fillStyle = '#eef0fb'; c.font = `600 34px ${SERIF}`; c.fillText(cd.items[0].nombre, inX - 8, y + 54);
+      if (cd.items.length > 1){
+        const nw = c.measureText(cd.items[0].nombre).width;
+        const txt = `${cd.items.length} personas lo piden`;
+        c.font = `700 17px ${SERIF}`;
+        const bw = c.measureText(txt).width + 22, bx = inX - 8 + nw + 16, by = y + 30;
+        rr(bx, by, bw, 28, 14); c.strokeStyle = '#8f8256'; c.lineWidth = 1.2; c.stroke();
+        c.fillStyle = '#d9c383'; c.fillText(txt, bx + 11, by + 20);
+      }
+      let ty = y + 24 + 44;
+      cd.reqs.forEach((q, qi) => {
+        if (qi > 0){ c.setLineDash([3, 5]); c.strokeStyle = 'rgba(197,209,255,0.18)'; c.lineWidth = 1; c.beginPath(); c.moveTo(inX - 8, ty - 8); c.lineTo(cardX + cardW - 24, ty - 8); c.stroke(); c.setLineDash([]); }
+        q.lines.forEach(line => {
+          let x = inX; ty += LH - 4;
+          line.forEach(tk => { c.font = font(tk.b); c.fillStyle = tk.b ? '#c5d1ff' : '#a3adce'; c.fillText(tk.w, x, ty); x += tk.wd; });
+          ty += 4;
+        });
+        ty += 18;
+      });
+      y += cd.h + 18;
+    });
+    c.fillStyle = '#8f8256'; c.font = `italic 18px ${COR}`; c.textAlign = 'center';
+    c.fillText('Actualizado el ' + new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }), W / 2, H - 28);
+    cv.toBlob((blob) => {
+      if (!blob){ statusLine.textContent = 'No se pudo generar la imagen.'; return; }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'buscados-moonlight.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }, 'image/png');
+  }
+  $('exportBuscImgBtn').addEventListener('click', exportBuscadosImage);
+
+  function paintBuscados(){
+    buscadosList.innerHTML = '';
+    allCaches.buscados = buscadosCache;
+    updateLastUpdated();
+    // Una tarjeta por personaje; cada petición (quién lo pide y por qué) va por separado dentro
+    const groups = groupBuscados();
     const filtered = searchTerm
       ? groups.filter(items => items.some(r =>
           normalize(r.nombre).includes(searchTerm) ||
@@ -683,8 +776,12 @@
         const pedidoPor = ped ? ped.label : '';
         const motivo = motivoInput.value.trim();
         if (!nombre || !pedidoPor || !motivo) return;
-        await updateDoc(doc(db, 'buscados', r.id), { nombre, pedidoPor, pedidoPorId: ped.id || null, motivo, fecha: fechaInput.value || null });
+        const prev = editingBuscadoId;
         editingBuscadoId = null;
+        try {
+          await updateDoc(doc(db, 'buscados', r.id), { nombre, pedidoPor, pedidoPorId: ped.id || null, motivo, fecha: fechaInput.value || null });
+        } catch (e) { editingBuscadoId = prev; paintBuscados(); throw e; }
+        paintBuscados();
       };
       actions.appendChild(makeActionBtn('Guardar', save));
       const cancelBtn = document.createElement('button');
