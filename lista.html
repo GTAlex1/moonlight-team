@@ -476,6 +476,9 @@
           if (collectionName === 'ocupados'){
             actions.appendChild(makeActionBtn('Cambiar', async () => { editingId = item.id; paint(); }, 'icon-btn-edit'));
           }
+          if (collectionName === 'reservados'){
+            actions.appendChild(makeActionBtn('Unido', () => moveReservadoToOcupados(item)));
+          }
           if (collectionName === 'ocupados' && item.origenBuscado){
             actions.appendChild(makeActionBtn('Liberar', () => restoreToBuscados(item)));
           }
@@ -495,6 +498,19 @@
   const reservadosCtl = setupSimpleList('reservados', $('reservadosList'), $('reservadosEmpty'), 'Ninguna reserva en pie por ahora.');
   function paintOcupados(){ ocupadosCtl.paint(); }
   function paintReservados(){ reservadosCtl.paint(); }
+
+  // Un reservado se ha unido al team: sale de reservados y entra directamente en ocupados
+  async function moveReservadoToOcupados(reservado){
+    const dup = ocupadosCtl.getCache().some(o => normalize(o.nombre) === normalize(reservado.nombre));
+    if (dup && !confirm(`Ya hay un ocupado llamado «${reservado.nombre}». ¿Añadirlo igualmente?`)) return;
+    await addDoc(collection(db, 'ocupados'), {
+      nombre: reservado.nombre,
+      orden: nextOrden(ocupadosCtl.getCache()),
+      createdAt: serverTimestamp()
+    });
+    await deleteDoc(doc(db, 'reservados', reservado.id));
+    statusLine.textContent = `«${reservado.nombre}» pasa a ocupados. Recuerda vincular su contacto en Contactos.`;
+  }
 
   // Un buscado se ha encontrado: pasa a ocupados, guardando quién lo pedía y por qué por si se libera más adelante
   async function moveToOcupados(buscado){
