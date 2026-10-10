@@ -93,7 +93,8 @@
       <p class="subtitle">Los lazos entre quienes comparten la noche. Toca un personaje para ver su familia.</p>
     </div>
     <div class="admin-actions">
-      <button class="admin-toggle" id="exportImgBtn" type="button">Exportar como imagen</button>
+      <button class="admin-toggle" id="exportImgBtn" type="button">Exportar imagen (PNG)</button>
+      <button class="admin-toggle" id="exportSvgBtn" type="button" title="Vectorial: se puede ampliar sin perder calidad">Exportar vectorial (SVG)</button>
       <button class="admin-toggle" id="adminToggleBtn">Acceso admin</button>
     </div>
   </header>
@@ -334,7 +335,8 @@
     try { await Promise.all([document.fonts.load("600 16px 'Crimson Pro'"), document.fonts.load("italic 600 44px 'Cormorant'"), document.fonts.load("italic 13px 'Cormorant'")]); } catch (e) {}
     const { P, g, max, X, W, H, RH, sh, wd, ht, RY } = L;
     const pad = 56, head = 120, cw = wd + pad * 2, ch = ht + head + pad;
-    const k = Math.min(2, 8000 / Math.max(cw, ch));
+    // Resolución lo más alta que aguantan los navegadores (también el móvil): ~16 Mpx y 16000 px de lado
+    const k = Math.max(0.5, Math.min(3, Math.sqrt(16e6 / (cw * ch)), 16000 / Math.max(cw, ch)));
     const cv = document.createElement('canvas');
     cv.width = Math.round(cw * k); cv.height = Math.round(ch * k);
     const c = cv.getContext('2d');
@@ -403,6 +405,61 @@
     }, 'image/png');
   }
   $('exportImgBtn').addEventListener('click', exportImage);
+
+  // Versión vectorial: no se pixela por mucho que se amplíe
+  async function exportSvg(){
+    const L = computeLayout(false);
+    if (!L){ $('statusLine').textContent = 'No hay nada que exportar todavía.'; return; }
+    try { await Promise.all([document.fonts.load("600 16px 'Crimson Pro'"), document.fonts.load("italic 13px 'Cormorant'")]); } catch (e) {}
+    const { P, g, max, X, W, H, RH, sh, wd, ht, RY } = L;
+    const pad = 56, head = 120, cw = wd + pad * 2, ch = ht + head + pad;
+    const mc = document.createElement('canvas').getContext('2d');
+    const SERIF = "'Crimson Pro', Georgia, serif", COR = "'Cormorant', Georgia, serif";
+    const f = (n) => Math.round(n * 10) / 10;
+    let seed = 20240; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    let o = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${f(cw)} ${f(ch)}" width="${f(cw)}" height="${f(ch)}">`;
+    o += `<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e1326"/><stop offset="1" stop-color="#090c1a"/></linearGradient>` +
+         `<radialGradient id="gl" cx="${f(cw * .85)}" cy="0" r="${f(Math.max(cw, ch) * .55)}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#d9c383" stop-opacity=".18"/><stop offset="1" stop-color="#d9c383" stop-opacity="0"/></radialGradient></defs>`;
+    o += `<rect width="${f(cw)}" height="${f(ch)}" fill="url(#bg)"/><rect width="${f(cw)}" height="${f(ch)}" fill="url(#gl)"/>`;
+    for (let i = 0; i < Math.round(cw * ch / 9000); i++)
+      o += `<circle cx="${f(rnd() * cw)}" cy="${f(rnd() * ch)}" r="${f(0.5 + rnd())}" fill="#fff" fill-opacity="${(0.2 + rnd() * 0.7).toFixed(2)}"/>`;
+    o += `<text x="${pad}" y="74" font-family="${COR}" font-style="italic" font-weight="600" font-size="46" fill="#eef0fb">Árbol de Moonlight</text>`;
+    o += `<text x="${pad + 2}" y="100" font-family="${COR}" font-style="italic" font-size="18" fill="#8f8256">Moonlight Team</text>`;
+    o += `<g transform="translate(${pad} ${head})">`;
+    for (let i = 0; i <= max; i++){
+      const y = RY(i);
+      o += `<line x1="0" y1="${y}" x2="${f(wd)}" y2="${y}" stroke="#c5d1ff" stroke-opacity=".2" stroke-dasharray="2 5"/>`;
+      o += `<text x="4" y="${y - 8}" font-family="${COR}" font-style="italic" font-size="14" fill="#8f8256">Gen. ${esc(ROM[i] || i + 1)}</text>`;
+    }
+    P.forEach(c => c.parents.forEach(a => {
+      const x1 = f(X[a] + sh), y1 = f(RY(g[a]) + H / 2), x2 = f(X[c.id] + sh), y2 = f(RY(g[c.id]) - H / 2), b = f(y2 - (RH - H) / 2);
+      o += `<path d="M${x1} ${y1}V${b}H${x2}V${f(y2 - 4)}" fill="none" stroke="#b9c6ef" stroke-opacity=".85" stroke-width="1.6"/>`;
+      o += `<polygon points="${x2},${y2} ${f(x2 - 5)},${f(y2 - 9)} ${f(x2 + 5)},${f(y2 - 9)}" fill="#b9c6ef"/>`;
+    }));
+    P.forEach(p => p.partners.forEach(q => {
+      if (p.id < q && g[p.id] === g[q]){
+        const l = X[p.id] < X[q] ? p.id : q, r = l === p.id ? q : p.id, y = RY(g[p.id]);
+        o += `<line x1="${f(X[l] + sh + W / 2)}" y1="${y}" x2="${f(X[r] + sh - W / 2)}" y2="${y}" stroke="#8f8256" stroke-width="1.6" stroke-dasharray="4 4"/>`;
+      }
+    }));
+    mc.font = `600 16px ${SERIF}`;
+    P.forEach(p => {
+      const x = f(X[p.id] + sh - W / 2), y = f(RY(g[p.id]) - H / 2);
+      let name = p.name;
+      while (name.length > 1 && mc.measureText(name).width > W - 26) name = name.slice(0, -1);
+      if (name !== p.name) name = name.trimEnd() + '…';
+      const gen = 'Gen. ' + (ROM[g[p.id]] || g[p.id] + 1) + (p.g === 'f' ? ' ♀' : p.g === 'm' ? ' ♂' : '');
+      o += `<rect x="${x}" y="${y}" width="${W}" height="${H}" rx="${H / 2}" fill="#101630" fill-opacity=".96" stroke="#b9c6ef" stroke-width="1.5"/>`;
+      o += `<text x="${f(+x + W / 2)}" y="${f(+y + H / 2 - 1)}" text-anchor="middle" font-family="${SERIF}" font-weight="600" font-size="16" fill="#eef0fb">${esc(name)}</text>`;
+      o += `<text x="${f(+x + W / 2)}" y="${f(+y + H / 2 + 15)}" text-anchor="middle" font-family="${COR}" font-style="italic" font-size="13" fill="#a3adce">${esc(gen)}</text>`;
+    });
+    o += '</g></svg>';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([o], { type: 'image/svg+xml' })); a.download = 'arbol-moonlight.svg';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  $('exportSvgBtn').addEventListener('click', exportSvg);
 
   // ---------- Arrastrar para reordenar (solo admin) ----------
   $('tree').addEventListener('pointerdown', (e) => {
