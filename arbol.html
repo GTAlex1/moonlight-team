@@ -34,16 +34,35 @@
   .n.dim{ opacity:.28; }
   .n.gone{ border-style:dashed; opacity:.55; }
   .n.gone b{ font-style:italic; }
-  .detail h2{ margin-bottom:4px; }
-  .detail .rel{ margin:6px 0; color:var(--ink-soft); }
-  .detail .rel b{ color:var(--ink); font-weight:600; }
-  .detail a.go{ color:var(--gold); cursor:pointer; border-bottom:1px dotted var(--gold-dim); }
-  .detail .gone-note{ color:var(--danger); font-style:italic; }
-  .detail .row-btns{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
-  .chk-group{ display:flex; flex-wrap:wrap; gap:6px 14px; max-height:150px; overflow:auto; padding:6px 0; }
-  .chk-group label{ display:inline-flex; align-items:center; gap:6px; font-size:.95rem; }
-  .chk-group input{ width:auto; margin:0; }
-  #editDialog{ max-width:440px; width:calc(100% - 32px); }
+  #sheet{
+    position:fixed; z-index:20; top:0; right:0; bottom:0; width:min(400px,100vw);
+    background:#141b37; border-left:1px solid var(--border); box-shadow:-10px 0 30px rgba(0,0,0,.4);
+    padding:22px 20px 28px; overflow:auto; transform:translateX(105%); transition:transform .28s ease;
+  }
+  #sheet.o{ transform:none; }
+  #sheet .sh-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  #sheet h2{ font-family:'Cormorant',serif; font-style:italic; font-weight:600; font-size:1.7rem; color:var(--gold); margin:0 0 8px; }
+  #sheet .x{ background:none; border:1px solid var(--border); color:var(--ink-soft); border-radius:3px; cursor:pointer; padding:2px 9px; font-size:1rem; }
+  #sheet .rel{ margin:8px 0; color:var(--ink-soft); }
+  #sheet .rel b{ color:var(--ink); font-weight:600; }
+  #sheet a.go{ color:var(--gold); cursor:pointer; border-bottom:1px dotted var(--gold-dim); }
+  #sheet .row-btns{ display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+  #sheet .field{ margin-bottom:16px; }
+  #sheet .field > label{ display:block; margin-bottom:4px; color:var(--ink-soft); font-size:.95rem; }
+  #sheet select{ width:100%; }
+  .msel-btn{ width:100%; display:flex; justify-content:space-between; align-items:center; gap:8px; text-align:left;
+    font-family:'Crimson Pro',serif; font-size:1rem; padding:8px 10px; border:1px solid var(--border); border-radius:3px;
+    background:rgba(255,255,255,0.04); color:var(--ink); cursor:pointer; }
+  .msel-txt{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .msel-list{ margin-top:4px; max-height:210px; overflow:auto; border:1px solid var(--border); border-radius:3px; background:rgba(255,255,255,0.03); padding:6px; }
+  .msel-list .msel-q{ width:100%; margin-bottom:6px; }
+  .msel-list label{ display:flex; align-items:center; gap:8px; padding:4px 4px; cursor:pointer; border-radius:3px; }
+  .msel-list label:hover{ background:rgba(217,195,131,.10); }
+  .msel-list input[type=checkbox]{ width:auto; margin:0; }
+  @media (min-width:901px){ body:has(#sheet.o) .wrap{ padding-right:420px; } }
+  @media (max-width:600px){
+    #sheet{ top:auto; left:0; width:100%; height:62vh; border-left:0; border-top:1px solid var(--border); transform:translateY(105%); }
+  }
 </style>
 </head>
 <body>
@@ -75,7 +94,6 @@
     <p class="empty-note" id="statusLine"></p>
   </section>
 
-  <section class="panel detail" id="detailPanel" hidden></section>
 </div>
 
 <dialog id="loginDialog">
@@ -97,9 +115,7 @@
   </div>
 </dialog>
 
-<dialog id="editDialog">
-  <div class="dialog-inner" id="editBody"></div>
-</dialog>
+<aside id="sheet" aria-live="polite"></aside>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -148,7 +164,7 @@
   })();
 
   // ---------- Estado ----------
-  let isAdmin = false, sel = null, syncing = false, SC = 1;
+  let isAdmin = false, sel = null, syncing = false, SC = 1, editing = false;
   let ocupados = [], arbol = [];
   const loaded = { o: false, a: false };
   const ROM = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
@@ -260,37 +276,37 @@
     SC = mob ? Math.max(.6, Math.min(1, ($('treeScroll').clientWidth - 8) / wd)) : 1;
     t.style.zoom = SC;
     t.innerHTML = gl + `<svg width="${wd}" height="${ht}"><defs><marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#b9c6ef"/></marker></defs>${es}</svg>` + ns;
-    if (sel && by[sel]) showDetail(P, by); else if (sel){ sel = null; $('detailPanel').hidden = true; }
+    if (sel && by[sel]) showDetail(P, by); else { if (sel) sel = null; closeSheet(); }
   }
 
   $('tree').addEventListener('click', (e) => {
     const n = e.target.closest('.n');
     if (!n) return;
+    editing = false;
     sel = sel === n.dataset.id ? null : n.dataset.id;
-    if (!sel) $('detailPanel').hidden = true;
     render();
-    if (sel) $('detailPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
   addEventListener('resize', () => { clearTimeout(render._t); render._t = setTimeout(render, 150); });
 
-  // ---------- Ficha del personaje ----------
+  // ---------- Ficha del personaje (panel lateral) ----------
+  function closeSheet(){ editing = false; $('sheet').classList.remove('o'); }
   function showDetail(P, by){
-    const me = by[sel], panel = $('detailPanel');
+    if (editing) return;
+    const me = by[sel], sh = $('sheet');
     const link = (id) => `<a class="go" data-go="${esc(id)}">${esc(by[id].name)}</a>`;
     const list = (ids) => ids.length ? ids.map(link).join(', ') : '<span>—</span>';
     const hijos = P.filter(c => c.parents.includes(sel)).map(c => c.id);
     const hermanos = P.filter(q => q.id !== sel && q.parents.some(p => me.parents.includes(p))).map(q => q.id);
-    panel.innerHTML = `<h2>${esc(me.name)}</h2>` +
+    sh.innerHTML = `<div class="sh-head"><h2>${esc(me.name)}</h2><button class="x" id="shX" type="button" aria-label="Cerrar">✕</button></div>` +
       `<p class="rel"><b>Padres:</b> ${list(me.parents)}</p>` +
       `<p class="rel"><b>Pareja:</b> ${list(me.partners)}</p>` +
       `<p class="rel"><b>Hijos:</b> ${list(hijos)}</p>` +
       `<p class="rel"><b>Hermanos:</b> ${list(hermanos)}</p>` +
-      (isAdmin ? `<div class="row-btns"><button class="btn-primary" id="editBtn" type="button">Editar</button></div>` : '');
-    panel.hidden = false;
-    panel.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', () => { sel = a.dataset.go; render(); }));
-    if (isAdmin){
-      $('editBtn').addEventListener('click', () => openEdit(P));
-    }
+      (isAdmin ? '<div class="row-btns"><button class="btn-primary" id="editBtn" type="button">Editar</button></div>' : '');
+    sh.classList.add('o');
+    $('shX').onclick = () => { sel = null; closeSheet(); render(); };
+    sh.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', () => { sel = a.dataset.go; render(); }));
+    if (isAdmin) $('editBtn').onclick = () => openEdit(P);
   }
 
   // ---------- Edición (solo admin) ----------
@@ -299,21 +315,43 @@
     while (q.length){ const x = q.pop(); P.filter(c => c.parents.includes(x)).forEach(c => { if (!out.has(c.id)){ out.add(c.id); q.push(c.id); } }); }
     return out;
   }
+  function mselHtml(name, label, opts, chosen){
+    return `<div class="field"><label>${label}</label><div class="msel" data-name="${name}">
+      <button type="button" class="msel-btn"><span class="msel-txt"></span><span>▾</span></button>
+      <div class="msel-list" hidden>${opts.length > 8 ? '<input type="text" class="msel-q" placeholder="Buscar…" autocomplete="off">' : ''}
+      ${opts.map(o => `<label data-n="${esc(normalize(o.name))}"><input type="checkbox" value="${esc(o.id)}" ${chosen.includes(o.id) ? 'checked' : ''}>${esc(o.name)}</label>`).join('') || '<small>—</small>'}
+      </div></div></div>`;
+  }
+  function wireMsel(root){
+    root.querySelectorAll('.msel').forEach(m => {
+      const list = m.querySelector('.msel-list'), txt = m.querySelector('.msel-txt'), q = m.querySelector('.msel-q');
+      const upd = () => {
+        const names = [...m.querySelectorAll('input[type=checkbox]:checked')].map(c => c.parentElement.textContent.trim());
+        txt.textContent = names.length ? names.join(', ') : 'Elegir…';
+      };
+      m.querySelector('.msel-btn').onclick = () => { list.hidden = !list.hidden; if (!list.hidden && q) q.focus(); };
+      m.addEventListener('change', upd);
+      if (q) q.oninput = () => { const k = normalize(q.value); m.querySelectorAll('label[data-n]').forEach(l => l.hidden = !l.dataset.n.includes(k)); };
+      upd();
+    });
+  }
   function openEdit(P){
     const me = P.find(p => p.id === sel); if (!me) return;
+    editing = true;
     const desc = descendants(P, sel);
     const others = P.filter(p => p.id !== sel);
-    const chk = (name, list, ok) => others.filter(ok).map(x => `<label><input type="checkbox" name="${name}" value="${esc(x.id)}" ${list.includes(x.id) ? 'checked' : ''}>${esc(x.name)}</label>`).join('') || '<small>—</small>';
-    $('editBody').innerHTML = `<h3>${esc(me.name)}</h3>
-      <div class="dialog-field"><label for="edG">Género</label>
+    const sh = $('sheet');
+    sh.innerHTML = `<div class="sh-head"><h2>${esc(me.name)}</h2></div>
+      <div class="field"><label for="edG">Género</label>
         <select id="edG"><option value="" ${!me.g ? 'selected' : ''}>Sin definir</option><option value="f" ${me.g === 'f' ? 'selected' : ''}>Femenino</option><option value="m" ${me.g === 'm' ? 'selected' : ''}>Masculino</option></select></div>
-      <div class="dialog-field"><label>Padres / madres</label><div class="chk-group">${chk('pa', me.parents, x => !desc.has(x.id))}</div></div>
-      <div class="dialog-field"><label>Pareja</label><div class="chk-group">${chk('pt', me.partners, () => true)}</div></div>
+      ${mselHtml('pa', 'Padres / madres', others.filter(x => !desc.has(x.id)), me.parents)}
+      ${mselHtml('pt', 'Pareja', others, me.partners)}
       <p class="dialog-error" id="editError"></p>
-      <div class="dialog-actions"><button class="btn-primary" id="edSave" type="button">Guardar</button><button class="btn-ghost" id="edCancel" type="button">Cancelar</button></div>`;
-    $('edCancel').onclick = () => $('editDialog').close();
+      <div class="row-btns"><button class="btn-primary" id="edSave" type="button">Guardar</button><button class="btn-ghost" id="edCancel" type="button">Cancelar</button></div>`;
+    wireMsel(sh);
+    $('edCancel').onclick = () => { editing = false; render(); };
     $('edSave').onclick = async () => {
-      const vals = (n) => [...document.querySelectorAll(`#editBody input[name=${n}]:checked`)].map(e => e.value);
+      const vals = (n) => [...sh.querySelectorAll(`.msel[data-name=${n}] input[type=checkbox]:checked`)].map(e => e.value);
       const cur = arbol.find(x => x.id === sel) || {};
       const oculto = (id) => (arbol.find(x => x.id === id) || {}).fuera;
       const padres = vals('pa').concat((cur.padres || []).filter(oculto));
@@ -328,11 +366,11 @@
           if (!had && want) batch.update(doc(db, 'arbol', x.id), { parejas: arrayUnion(sel) });
         });
         await batch.commit();
-        $('editDialog').close();
+        editing = false; render();
       } catch (e) { $('editError').textContent = 'No se pudo guardar, inténtalo de nuevo.'; }
     };
-    $('editDialog').showModal();
   }
+
   // ---------- Un registro por cada personaje ocupado (lo hace el admin al entrar) ----------
   async function sha(txt){
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
