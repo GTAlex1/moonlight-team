@@ -20,6 +20,12 @@ service cloud.firestore {
       allow create, update, delete: if request.auth != null;
     }
 
+    // Árbol genealógico: todos leen, solo el admin logueado escribe
+    match /arbol/{docId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
+    }
+
     // Páginas del índice: todos leen (para saber qué está oculto), solo el admin cambia la visibilidad
     match /paginas/{docId} {
       allow read: if true;
