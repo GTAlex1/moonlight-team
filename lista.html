@@ -29,9 +29,7 @@
   .lc-orn::after{ content:'◇'; position:absolute; right:-3px; top:-.62em; font-size:.8rem; font-style:normal; color:var(--gold); }
   .lc-orn.r::after{ right:auto; left:-3px; }
   .lc-sub{ margin-top:6px; text-align:center; font-size:.95rem; color:var(--ink-soft); }
-  .lc-msg{ padding:12px 14px 4px; font-size:1.05rem; line-height:1.45; }
-  .lc-url{ color:#8fb8ff; text-decoration:underline; word-break:break-all; }
-  .lc-btn{ margin-top:10px; padding:12px; text-align:center; border-top:1px solid rgba(197,209,255,.14); color:var(--gold); font-weight:600; letter-spacing:.3px; }
+  .lc-btn{ padding:12px; text-align:center; border-top:1px solid rgba(197,209,255,.14); color:var(--gold); font-weight:600; letter-spacing:.3px; }
   .lobby-card:hover .lc-btn{ background:rgba(217,195,131,.10); }
   .lobby-note{ color:var(--ink-soft); font-style:italic; font-size:.95rem; margin:0; }
   .lobby-admin{ display:flex; flex-direction:column; gap:8px; width:min(100%,380px); }
@@ -136,7 +134,6 @@
         <div class="lc-title"><span class="lc-orn"></span><span id="lobbyName">Lobby</span><span class="lc-orn r"></span></div>
         <div class="lc-sub">Grupo de WhatsApp · Moonlight Team</div>
       </div>
-      <div class="lc-msg">Sigue este link para unirte a nuestro grupo de WhatsApp:<br><span class="lc-url" id="lobbyUrlTxt"></span></div>
       <div class="lc-btn">Ver grupo</div>
     </a>
     <div class="lobby">
@@ -930,9 +927,10 @@
     const has = !!lobbyUrl;
     $('lobbyPanel').hidden = !has && !isAdmin;
     $('lobbyLink').hidden = !has;
-    if (has){ $('lobbyLink').href = lobbyUrl; $('lobbyUrlTxt').textContent = lobbyUrl; }
+    if (has) $('lobbyLink').href = lobbyUrl;
     $('lobbyName').textContent = lobbyNombre || 'Lobby';
-    $('lobbyImg').src = lobbyFoto || 'lobby.jpg';
+    const img = $('lobbyImg'), want = lobbyFoto || 'lobby.jpg';
+    if (img.getAttribute('src') !== want){ img.dataset.fb = ''; img.style.display = ''; img.src = want; }
     $('lobbyAdmin').hidden = !isAdmin;
     $('lobbyFotoReset').hidden = !lobbyFoto;
     if (isAdmin && document.activeElement !== $('lobbyInput')) $('lobbyInput').value = lobbyUrl;
@@ -941,6 +939,11 @@
     if (note.dataset.err !== '1') note.hidden = !(isAdmin && has && lobbyAt);
     if (!note.hidden && note.dataset.err !== '1') note.textContent = 'Actualizado el ' + lobbyAt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) + ' a las ' + lobbyAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
+  $('lobbyImg').addEventListener('error', (e) => {
+    const img = e.target;
+    if (!img.dataset.fb && img.getAttribute('src') !== 'lobby.jpg'){ img.dataset.fb = '1'; img.src = 'lobby.jpg'; }
+    else img.style.display = 'none';
+  });
   onSnapshot(lobbyRef(), (snap) => {
     const d = snap.exists() ? snap.data() : {};
     lobbyUrl = typeof d.url === 'string' ? d.url : '';
@@ -1000,6 +1003,7 @@
     btn.disabled = false; btn.textContent = t;
   }
   $('lobbyPrevBtn').addEventListener('click', () => { if (!lobbyUrl) return lobbyFail('Primero guarda el link del lobby.'); $('lobbyNote').dataset.err = '0'; actualizarVista(); });
+
   // Foto del grupo: se elige desde el móvil/PC, se recorta a cuadrado y se guarda comprimida
   $('lobbyFotoBtn').addEventListener('click', () => $('lobbyFoto').click());
   $('lobbyFoto').addEventListener('change', async (e) => {
