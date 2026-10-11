@@ -17,12 +17,25 @@
   .req-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:8px 0 6px 28px; border-top:1px dashed rgba(197,209,255,.14); }
   .lobby-text{ color:var(--ink-soft); margin:0 0 14px; }
   .lobby{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; }
-  .lobby-btn{ display:inline-block; padding:11px 22px; border:1px solid var(--gold); border-radius:4px; color:var(--gold); background:rgba(217,195,131,.10);
-    font-family:'Crimson Pro',serif; font-size:1.1rem; text-decoration:none; letter-spacing:.3px; transition:background .2s, box-shadow .2s; }
-  .lobby-btn:hover{ background:rgba(217,195,131,.2); box-shadow:0 0 18px rgba(217,195,131,.28); }
-  .lobby-empty, .lobby-note{ color:var(--ink-soft); font-style:italic; font-size:.95rem; margin:0; }
-  .lobby-admin{ display:flex; gap:8px; flex:1 1 100%; max-width:560px; }
-  .lobby-admin input{ flex:1; min-width:0; }
+  .lobby-card{ display:block; width:min(100%,380px); margin:0 0 16px; overflow:hidden; border:1px solid rgba(197,209,255,.2); border-radius:12px;
+    background:rgba(24,31,62,.92); color:var(--ink); text-decoration:none; box-shadow:0 8px 24px rgba(0,0,0,.3); transition:box-shadow .2s, border-color .2s; }
+  .lobby-card:hover{ border-color:var(--gold-dim); box-shadow:0 8px 28px rgba(217,195,131,.18); }
+  .lobby-card[hidden]{ display:none; }
+  .lobby-card img{ display:block; width:100%; aspect-ratio:1/1; object-fit:cover; }
+  .lc-body{ padding:12px 14px 10px; background:rgba(255,255,255,.04); border-bottom:1px solid rgba(197,209,255,.10); }
+  .lc-title{ display:flex; align-items:center; justify-content:center; gap:12px; font-family:'Cormorant',serif; font-style:italic; font-weight:600; font-size:1.6rem; color:var(--gold); line-height:1.1; }
+  .lc-orn{ flex:1; height:1px; position:relative; background:linear-gradient(90deg,transparent,var(--gold-dim)); }
+  .lc-orn.r{ background:linear-gradient(270deg,transparent,var(--gold-dim)); }
+  .lc-orn::after{ content:'◇'; position:absolute; right:-3px; top:-.62em; font-size:.8rem; font-style:normal; color:var(--gold); }
+  .lc-orn.r::after{ right:auto; left:-3px; }
+  .lc-sub{ margin-top:6px; text-align:center; font-size:.95rem; color:var(--ink-soft); }
+  .lc-msg{ padding:12px 14px 4px; font-size:1.05rem; line-height:1.45; }
+  .lc-url{ color:#8fb8ff; text-decoration:underline; word-break:break-all; }
+  .lc-btn{ margin-top:10px; padding:12px; text-align:center; border-top:1px solid rgba(197,209,255,.14); color:var(--gold); font-weight:600; letter-spacing:.3px; }
+  .lobby-card:hover .lc-btn{ background:rgba(217,195,131,.10); }
+  .lobby-note{ color:var(--ink-soft); font-style:italic; font-size:.95rem; margin:0; }
+  .lobby-admin{ display:flex; flex-direction:column; gap:8px; width:min(100%,380px); }
+  .lobby-admin-row{ display:flex; gap:8px; flex-wrap:wrap; }
   .lobby-note{ flex:1 1 100%; }
 </style>
 </head>
@@ -117,13 +130,26 @@
   <section class="panel" id="lobbyPanel">
     <h2>¿Quieres unirte?</h2>
     <p class="lobby-text">Entra al lobby y escríbenos para unirte al team.</p>
-    <div class="lobby" id="lobbyBox">
-      <a class="lobby-btn" id="lobbyLink" target="_blank" rel="noopener noreferrer" hidden>🌙 Entrar al lobby</a>
-      <button class="btn-ghost" id="lobbyCopy" type="button" hidden>Copiar link</button>
-      <span class="lobby-empty" id="lobbyEmpty" hidden>Todavía no hay link del lobby.</span>
+    <a class="lobby-card" id="lobbyLink" target="_blank" rel="noopener noreferrer" hidden>
+      <img id="lobbyImg" src="lobby.jpg" alt="Foto del grupo" loading="lazy">
+      <div class="lc-body">
+        <div class="lc-title"><span class="lc-orn"></span><span id="lobbyName">Lobby</span><span class="lc-orn r"></span></div>
+        <div class="lc-sub">Grupo de WhatsApp · Moonlight Team</div>
+      </div>
+      <div class="lc-msg">Sigue este link para unirte a nuestro grupo de WhatsApp:<br><span class="lc-url" id="lobbyUrlTxt"></span></div>
+      <div class="lc-btn">Ver grupo</div>
+    </a>
+    <div class="lobby">
       <div class="lobby-admin" id="lobbyAdmin" hidden>
-        <input id="lobbyInput" type="text" placeholder="Pega aquí el nuevo link del lobby" autocomplete="off">
-        <button class="btn-primary" id="lobbySave" type="button">Guardar link</button>
+        <input id="lobbyInput" type="text" placeholder="Link del lobby" autocomplete="off">
+        <input id="lobbyNombre" type="text" maxlength="40" placeholder="Nombre del grupo (por defecto: Lobby)" autocomplete="off">
+        <div class="lobby-admin-row">
+          <button class="btn-primary" id="lobbySave" type="button">Guardar</button>
+          <button class="btn-ghost" id="lobbyPrevBtn" type="button">Actualizar vista previa</button>
+          <button class="btn-ghost" id="lobbyFotoBtn" type="button">Cambiar foto a mano</button>
+          <button class="btn-ghost" id="lobbyFotoReset" type="button" hidden>Foto por defecto</button>
+          <input type="file" id="lobbyFoto" accept="image/*" hidden>
+        </div>
       </div>
       <p class="lobby-note" id="lobbyNote" hidden></p>
     </div>
@@ -897,42 +923,100 @@
   });
 
   // ---------- Link del lobby (lo cambia el admin desde aquí) ----------
-  let lobbyUrl = '', lobbyAt = null;
+  let lobbyUrl = '', lobbyAt = null, lobbyNombre = '', lobbyFoto = '';
+  const lobbyRef = () => doc(db, 'ajustes', 'lobby');
+  const lobbyFail = (t) => { const n = $('lobbyNote'); n.dataset.err = '1'; n.hidden = false; n.textContent = t; };
   function paintLobby(){
     const has = !!lobbyUrl;
     $('lobbyPanel').hidden = !has && !isAdmin;
     $('lobbyLink').hidden = !has;
-    if (has) $('lobbyLink').href = lobbyUrl;
-    $('lobbyCopy').hidden = !has;
-    $('lobbyEmpty').hidden = true;
+    if (has){ $('lobbyLink').href = lobbyUrl; $('lobbyUrlTxt').textContent = lobbyUrl; }
+    $('lobbyName').textContent = lobbyNombre || 'Lobby';
+    $('lobbyImg').src = lobbyFoto || 'lobby.jpg';
     $('lobbyAdmin').hidden = !isAdmin;
+    $('lobbyFotoReset').hidden = !lobbyFoto;
     if (isAdmin && document.activeElement !== $('lobbyInput')) $('lobbyInput').value = lobbyUrl;
+    if (isAdmin && document.activeElement !== $('lobbyNombre')) $('lobbyNombre').value = lobbyNombre;
     const note = $('lobbyNote');
     if (note.dataset.err !== '1') note.hidden = !(isAdmin && has && lobbyAt);
-    if (!note.hidden && note.dataset.err !== '1') note.textContent = 'Link actualizado el ' + lobbyAt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) + ' a las ' + lobbyAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    if (!note.hidden && note.dataset.err !== '1') note.textContent = 'Actualizado el ' + lobbyAt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) + ' a las ' + lobbyAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
-  onSnapshot(doc(db, 'ajustes', 'lobby'), (snap) => {
+  onSnapshot(lobbyRef(), (snap) => {
     const d = snap.exists() ? snap.data() : {};
     lobbyUrl = typeof d.url === 'string' ? d.url : '';
+    lobbyNombre = typeof d.nombre === 'string' ? d.nombre : '';
+    lobbyFoto = typeof d.foto === 'string' ? d.foto : '';
     lobbyAt = d.updatedAt && d.updatedAt.toDate ? d.updatedAt.toDate() : null;
     $('lobbyNote').dataset.err = '0';
     paintLobby();
   }, () => paintLobby());
   $('lobbySave').addEventListener('click', async () => {
     let u = $('lobbyInput').value.trim();
-    const note = $('lobbyNote');
-    const fail = (t) => { note.dataset.err = '1'; note.hidden = false; note.textContent = t; };
     if (u && !/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u;
-    if (u && !/^https?:\/\//i.test(u)) return fail('El link tiene que empezar por http:// o https://');
+    if (u && !/^https?:\/\//i.test(u)) return lobbyFail('El link tiene que empezar por http:// o https://');
+    const cambio = u !== lobbyUrl;
     try {
-      note.dataset.err = '0';
-      await setDoc(doc(db, 'ajustes', 'lobby'), { url: u, updatedAt: serverTimestamp() });
-    } catch (e) { fail('No se pudo guardar el link, inténtalo de nuevo.'); }
+      $('lobbyNote').dataset.err = '0';
+      await setDoc(lobbyRef(), { url: u, nombre: $('lobbyNombre').value.trim(), updatedAt: serverTimestamp() }, { merge: true });
+    } catch (e) { return lobbyFail('No se pudo guardar, inténtalo de nuevo.'); }
+    if (cambio && u) actualizarVista(u);   // link nuevo: se saca solo la foto y el nombre del grupo
   });
-  $('lobbyCopy').addEventListener('click', async () => {
-    const b = $('lobbyCopy'), t = b.textContent;
-    try { await navigator.clipboard.writeText(lobbyUrl); b.textContent = '¡Copiado!'; } catch (e) { b.textContent = 'No se pudo copiar'; }
-    setTimeout(() => b.textContent = t, 1600);
+
+  // Vista previa automática (como la de WhatsApp): se pide una vez, aquí, y se guarda; los visitantes no dependen de nadie
+  const conTimeout = (url, ms = 15000) => { const c = new AbortController(); setTimeout(() => c.abort(), ms); return fetch(url, { signal: c.signal }); };
+  async function sacarVista(url){
+    const r = await conTimeout('https://api.microlink.io/?url=' + encodeURIComponent(url));
+    const j = await r.json();
+    if (j.status !== 'success' || !j.data) throw new Error('sin datos');
+    const d = j.data;
+    let nombre = String(d.title || '').trim().slice(0, 60);
+    if (/^whatsapp/i.test(nombre)) nombre = '';
+    let foto = '';
+    const img = d.image && d.image.url;
+    if (img){
+      try {
+        const pr = await conTimeout('https://images.weserv.nl/?url=' + encodeURIComponent(img) + '&w=640&h=640&fit=cover&output=jpg&q=85');
+        if (pr.ok){
+          const b = await pr.blob();
+          if (b.type.startsWith('image/')) foto = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+        }
+      } catch (e) {}
+    }
+    return { nombre, foto };
+  }
+  async function actualizarVista(url){
+    const btn = $('lobbyPrevBtn'), t = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Buscando…';
+    try {
+      const v = await sacarVista(url || lobbyUrl);
+      if (!v.nombre && !v.foto) throw new Error('vacío');
+      const upd = { updatedAt: serverTimestamp() };
+      if (v.nombre) upd.nombre = v.nombre;
+      if (v.foto) upd.foto = v.foto;
+      await setDoc(lobbyRef(), upd, { merge: true });
+    } catch (e) {
+      lobbyFail('No se pudo sacar la vista previa automática. Puedes poner la foto y el nombre a mano.');
+    }
+    btn.disabled = false; btn.textContent = t;
+  }
+  $('lobbyPrevBtn').addEventListener('click', () => { if (!lobbyUrl) return lobbyFail('Primero guarda el link del lobby.'); $('lobbyNote').dataset.err = '0'; actualizarVista(); });
+  // Foto del grupo: se elige desde el móvil/PC, se recorta a cuadrado y se guarda comprimida
+  $('lobbyFotoBtn').addEventListener('click', () => $('lobbyFoto').click());
+  $('lobbyFoto').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      const bmp = await createImageBitmap(f);
+      const S = 640, m = Math.min(bmp.width, bmp.height), cv = document.createElement('canvas');
+      cv.width = cv.height = S;
+      cv.getContext('2d').drawImage(bmp, (bmp.width - m) / 2, (bmp.height - m) / 2, m, m, 0, 0, S, S);
+      $('lobbyNote').dataset.err = '0';
+      await setDoc(lobbyRef(), { foto: cv.toDataURL('image/jpeg', 0.85), updatedAt: serverTimestamp() }, { merge: true });
+    } catch (err) { lobbyFail('No se pudo cambiar la foto, prueba con otra imagen.'); }
+  });
+  $('lobbyFotoReset').addEventListener('click', async () => {
+    try { await setDoc(lobbyRef(), { foto: '', updatedAt: serverTimestamp() }, { merge: true }); }
+    catch (e) { lobbyFail('No se pudo quitar la foto.'); }
   });
 
   // ---------- Exportar a WhatsApp (solo admin, sin la fecha admin-only) ----------
