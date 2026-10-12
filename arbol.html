@@ -288,6 +288,26 @@
       const r = rel(id, q.id);
       if (r){ out.push({ q, t: label(r, me.g), k: r.dP + r.dQ, s: 1 }); return; }
       let t = null;
+      // Familia reconstituida: la pareja de un antepasado mío (padrastro/madrastra…) y todo lo que cuelga de ella
+      {
+        const A = anc(id); let best = null;
+        for (const xid in A){
+          const dX = A[xid]; if (!dX) continue;
+          for (const bid of ((by(xid) || {}).partners || [])){
+            if (bid in A) continue;
+            const r2 = rel(bid, q.id); if (!r2) continue;
+            const rr = { dP: r2.dP + dX, dQ: r2.dQ }, tot = rr.dP + rr.dQ;
+            if (!best || tot < best.tot) best = { rr, tot };
+          }
+        }
+        if (best){
+          const { rr } = best;
+          if (rr.dQ == 0 && rr.dP == 1) t = G(me.g, 'Hijastro', 'Hijastra');
+          else if (rr.dP == 1 && rr.dQ == 1) t = G(me.g, 'Hermanastro', 'Hermanastra');
+          else t = label(rr, me.g) + G(me.g, ' político', ' política');
+        }
+      }
+      if (!t)
       for (const sid of me.partners){ const r2 = rel(sid, q.id); if (r2){ t = polLabel(r2, me.g, 2); break; } }
       if (!t) for (const tid of q.partners){ const r2 = rel(id, tid); if (r2){ t = polLabel(r2, me.g, 1); break; } }
       if (t) out.push({ q, t, k: 99, s: 2 });
