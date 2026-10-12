@@ -35,27 +35,8 @@
   .lobby-admin{ display:flex; flex-direction:column; gap:8px; width:min(100%,380px); }
   .lobby-admin-row{ display:flex; gap:8px; flex-wrap:wrap; }
   .lobby-note{ flex:1 1 100%; }
-  /* Móvil / pantallas estrechas: columna única como antes */
+  /* Columna estrecha: las cajas miden lo mismo que la tarjeta del lobby */
   body .wrap{ max-width:460px; }
-  .board{ display:block; }
-  /* Pantallas anchas: tres columnas lado a lado */
-  @media (min-width: 1000px){
-    body .wrap{ max-width:1180px; padding-left:32px; padding-right:32px; }
-    .search-wrap{ max-width:460px; }
-    .board{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:22px; align-items:start; }
-    .board section.panel{ margin-bottom:0; }
-    .board .admin-add.cols-2{ grid-template-columns:1fr; }
-    #lobbyPanel{ max-width:620px; margin:22px auto 0; padding:18px 20px 20px; }
-    #lobbyPanel .lobby-text{ margin-bottom:12px; }
-    #lobbyPanel .lobby-card:not([hidden]){ display:grid; grid-template-columns:150px 1fr; grid-template-rows:1fr auto; width:100%; margin:0; }
-    #lobbyPanel .lobby-card img{ grid-row:1 / 3; height:100%; aspect-ratio:auto; }
-    #lobbyPanel .lc-body{ display:flex; flex-direction:column; justify-content:center; }
-    #lobbyPanel .lc-btn{ padding:10px; }
-    .status{ text-align:center; }
-  }
-  @media (min-width: 1000px) and (max-width: 1250px){
-    body .wrap{ max-width:1000px; }
-  }
   header.top{ flex-wrap:wrap; gap:12px; }
   .admin-actions{ display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
 </style>
@@ -90,7 +71,6 @@
     <input type="text" id="searchInput" placeholder="Buscar un personaje..." autocomplete="off">
   </div>
 
-  <div class="board">
   <section class="panel">
     <h2>Ocupados</h2>
     <p class="panel-desc">Ya están en manos de alguien del equipo.</p>
@@ -147,7 +127,6 @@
       <button class="submit-btn" id="bAddBtn" type="button">Añadir a buscados</button>
     </div>
   </section>
-  </div>
 
   <footer class="status" id="statusLine"></footer>
   <section class="panel" id="lobbyPanel">
