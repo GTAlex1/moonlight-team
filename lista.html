@@ -257,6 +257,7 @@
     isAdmin = !!user;
     adminToggleBtn.textContent = isAdmin ? 'Salir del modo admin' : 'Acceso admin';
     adminToggleBtn.classList.toggle('is-admin', isAdmin);
+    document.body.classList.toggle('is-admin', isAdmin);
     $('ocupadoAdminForm').hidden = !isAdmin;
     $('reservadoAdminForm').hidden = !isAdmin;
     $('buscadoAdminForm').hidden = !isAdmin;
