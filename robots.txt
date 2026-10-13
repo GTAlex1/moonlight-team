@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://gtalex1.github.io/moonlight/sitemap.xml
+Sitemap: https://gtalex1.github.io/moonlight-team/sitemap.xml
