@@ -309,34 +309,42 @@
     const by = (i) => B[i];
     const anc = (x) => { const d = { [x]: 0 }; let q = [x]; while (q.length){ const n = []; q.forEach(y => (by(y)?.parents || []).forEach(p => { if (!(p in d)){ d[p] = d[y] + 1; n.push(p); } })); q = n; } return d; };
     const rel = (a, b) => { const A = anc(a), Bn = anc(b); let best = null; for (const c in A) if (c in Bn){ const sm = A[c] + Bn[c]; if (!best || sm < best.s) best = { s: sm, dP: A[c], dQ: Bn[c] }; } return best; };
+    // Parentesco por familia reconstituida: b es familia de la pareja de un antepasado de a
+    const stepOf = (a, b) => {
+      const A = anc(a); let best = null;
+      for (const xid in A){
+        const dX = A[xid]; if (!dX) continue;
+        for (const bid of ((by(xid) || {}).partners || [])){
+          if (bid in A) continue;
+          const r2 = rel(bid, b); if (!r2) continue;
+          const rr = { dP: r2.dP + dX, dQ: r2.dQ, tot: r2.dP + dX + r2.dQ };
+          if (!best || rr.tot < best.tot) best = rr;
+        }
+      }
+      return best;
+    };
+    const relAny = (a, b) => rel(a, b) || stepOf(a, b) || (() => { const r = stepOf(b, a); return r ? { dP: r.dQ, dQ: r.dP } : null; })();
     const me = by(id), out = [];
     P.filter(q => q.id !== id).forEach(q => {
       if (me.partners.includes(q.id) || q.partners.includes(id)){ out.push({ q, t: G(me.g, 'Novio', 'Novia'), k: 0, s: 0 }); return; }
       const r = rel(id, q.id);
       if (r){ out.push({ q, t: label(r, me.g), k: r.dP + r.dQ, s: 1 }); return; }
       let t = null;
-      // Familia reconstituida: la pareja de un antepasado mío (padrastro/madrastra…) y todo lo que cuelga de ella
+      // Familia reconstituida, en ambos sentidos (hijastro/padrastro, hermanastro, sobrino político…)
       {
-        const A = anc(id); let best = null;
-        for (const xid in A){
-          const dX = A[xid]; if (!dX) continue;
-          for (const bid of ((by(xid) || {}).partners || [])){
-            if (bid in A) continue;
-            const r2 = rel(bid, q.id); if (!r2) continue;
-            const rr = { dP: r2.dP + dX, dQ: r2.dQ }, tot = rr.dP + rr.dQ;
-            if (!best || tot < best.tot) best = { rr, tot };
-          }
-        }
+        const f = stepOf(id, q.id), b = stepOf(q.id, id), inv = b && { dP: b.dQ, dQ: b.dP, tot: b.tot };
+        const best = f && (!inv || f.tot <= inv.tot) ? f : inv;
         if (best){
-          const { rr } = best;
+          const rr = { dP: best.dP, dQ: best.dQ };
           if (rr.dQ == 0 && rr.dP == 1) t = G(me.g, 'Hijastro', 'Hijastra');
+          else if (rr.dP == 0 && rr.dQ == 1) t = G(me.g, 'Padrastro', 'Madrastra');
           else if (rr.dP == 1 && rr.dQ == 1) t = G(me.g, 'Hermanastro', 'Hermanastra');
           else t = label(rr, me.g) + G(me.g, ' político', ' política');
         }
       }
-      if (!t)
-      for (const sid of me.partners){ const r2 = rel(sid, q.id); if (r2){ t = polLabel(r2, me.g, 2); break; } }
-      if (!t) for (const tid of q.partners){ const r2 = rel(id, tid); if (r2){ t = polLabel(r2, me.g, 1); break; } }
+      // Pareja de un pariente mío (yerno, nuera, suegro, cuñado…), también si el pariente es hijastro/padrastro
+      if (!t) for (const sid of me.partners){ const r2 = relAny(sid, q.id); if (r2){ t = polLabel(r2, me.g, 2); break; } }
+      if (!t) for (const tid of q.partners){ const r2 = relAny(id, tid); if (r2){ t = polLabel(r2, me.g, 1); break; } }
       if (t) out.push({ q, t, k: 99, s: 2 });
     });
     return out.sort((a, b) => a.s - b.s || a.k - b.k);
@@ -555,7 +563,7 @@
     const rs = relations(P, sel);
     const famIds = familyIds(P, sel), famNombre = familiaNombre(P, sel), famTit = familiaTitulo(P, sel);
     const famBase = 'familia-' + (normalize(famTit).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'moonlight');
-    const rows = rs.map(x => x.raw ? `<p class="rel">${a(x.q.id)}: <small>${esc(x.t)}</small></p>` : `<p class="rel">${esc(x.t)} de ${a(x.q.id)}${x.s === 2 ? ' <small>(político)</small>' : ''}</p>`).join('')
+    const rows = rs.map(x => x.raw ? `<p class="rel">${a(x.q.id)}: <small>${esc(x.t)}</small></p>` : `<p class="rel">${esc(x.t)} de ${a(x.q.id)}</p>`).join('')
       || '<p class="rel"><small>Aún no tiene parentescos registrados.</small></p>';
     sh.innerHTML = `<div class="sh-head"><h2>${esc(me.name)}</h2><button class="x" id="shX" type="button" aria-label="Cerrar">✕</button></div>` +
       (isAdmin ? '<div class="row-btns" style="margin:0 0 10px"><button class="btn-primary" id="editBtn" type="button">Editar</button></div>' : '') +
