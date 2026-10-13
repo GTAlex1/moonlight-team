@@ -513,6 +513,21 @@
 
 
 
+  // Cambiar el orden dentro de una pareja (el arrastre mueve la pareja entera)
+  async function moveEnUnidad(dir){
+    if (!isAdmin || !LAY || !sel) return;
+    const row = LAY.rows[LAY.g[sel]] || [], u = row.find(x => x.ids.includes(sel));
+    if (!u) return;
+    const i = u.ids.indexOf(sel), j = i + dir;
+    if (j < 0 || j >= u.ids.length) return;
+    const ids = [...u.ids]; [ids[i], ids[j]] = [ids[j], ids[i]];
+    try {
+      const batch = writeBatch(db); let k = 0;
+      row.forEach(x => (x === u ? ids : x.ids).forEach(id => batch.update(doc(db, 'arbol', id), { orden: k++ })));
+      await batch.commit();
+    } catch (e) { $('statusLine').textContent = 'No se pudo cambiar el orden.'; }
+  }
+
   // ---------- Arrastrar para reordenar (solo admin) ----------
   $('tree').addEventListener('pointerdown', (e) => {
     if (!isAdmin || !LAY || e.button > 0) return;
@@ -561,12 +576,14 @@
     const me = by[sel], sh = $('sheet');
     const a = (id) => `<a class="go" data-go="${esc(id)}">${esc(by[id].name)}</a>`;
     const rs = relations(P, sel);
+    const unit = LAY && (LAY.rows[LAY.g[sel]] || []).find(x => x.ids.includes(sel)), ui = unit ? unit.ids.indexOf(sel) : -1;
+    const canL = ui > 0, canR = ui >= 0 && ui < unit.ids.length - 1;
     const famIds = familyIds(P, sel), famNombre = familiaNombre(P, sel), famTit = familiaTitulo(P, sel);
     const famBase = 'familia-' + (normalize(famTit).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'moonlight');
     const rows = rs.map(x => x.raw ? `<p class="rel">${a(x.q.id)}: <small>${esc(x.t)}</small></p>` : `<p class="rel">${esc(x.t)} de ${a(x.q.id)}</p>`).join('')
       || '<p class="rel"><small>Aún no tiene parentescos registrados.</small></p>';
     sh.innerHTML = `<div class="sh-head"><h2>${esc(me.name)}</h2><button class="x" id="shX" type="button" aria-label="Cerrar">✕</button></div>` +
-      (isAdmin ? '<div class="row-btns" style="margin:0 0 10px"><button class="btn-primary" id="editBtn" type="button">Editar</button></div>' : '') +
+      (isAdmin ? '<div class="row-btns" style="margin:0 0 10px"><button class="btn-primary" id="editBtn" type="button">Editar</button>' + (canL ? '<button class="btn-ghost" id="moveL" type="button">← A la izquierda</button>' : '') + (canR ? '<button class="btn-ghost" id="moveR" type="button">A la derecha →</button>' : '') + '</div>' : '') +
       (famNombre ? `<p class="rel"><b>Familia:</b> ${esc(famNombre)}</p>` : '') +
       rows +
       (famIds.size > 1 ? '<div class="row-btns"><button class="btn-ghost" id="famPng" type="button">Exportar familia (PNG)</button><button class="btn-ghost" id="famPdf" type="button">Exportar familia (PDF)</button></div>' : '');
@@ -574,6 +591,8 @@
     $('shX').onclick = () => { sel = null; closeSheet(); render(); };
     sh.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', () => { sel = a.dataset.go; render(); }));
     if (isAdmin) $('editBtn').onclick = () => openEdit(P);
+    if (canL) $('moveL').onclick = () => moveEnUnidad(-1);
+    if (canR) $('moveR').onclick = () => moveEnUnidad(1);
     if (famIds.size > 1){
       $('famPng').onclick = () => exportImage(famIds, famTit, famBase);
       $('famPdf').onclick = () => exportPdf(famIds, famTit, famBase);
