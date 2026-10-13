@@ -182,15 +182,42 @@
   const ROM = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
 
   // <pure>
-  function buildPeople(arbolDocs){
-    const vis = arbolDocs.filter(a => !a.fuera);
+  function buildPeople(arbolDocs, only){
+    const vis = arbolDocs.filter(a => !a.fuera && (!only || only.has(a.id)));
     const ids = new Set(vis.map(a => a.id));
     return vis.map(a => ({
       id: a.id, name: a.nombre || '?', g: a.genero || '',
       parents: (a.padres || []).filter(x => ids.has(x) && x !== a.id),
       partners: (a.parejas || []).filter(x => ids.has(x) && x !== a.id),
-      ord: typeof a.orden === 'number' ? a.orden : 1e9
+      ord: typeof a.orden === 'number' ? a.orden : 1e9,
+      fam: a.familia || ''
     }));
+  }
+  // Familia = la persona, sus parejas y todos sus descendientes (con sus parejas)
+  function familyIds(P, id){
+    const by = {}; P.forEach(p => by[p.id] = p);
+    const set = new Set([id]);
+    (by[id].partners || []).forEach(x => set.add(x));
+    const q = [...set];
+    while (q.length){
+      const x = q.pop();
+      P.filter(c => c.parents.includes(x)).forEach(c => {
+        if (set.has(c.id)) return;
+        set.add(c.id); q.push(c.id);
+        by[c.id].partners.forEach(pp => set.add(pp));
+      });
+    }
+    return set;
+  }
+  // Nombre de la familia: el que le hayas puesto (a la persona o a su pareja) o uno automático
+  function familiaNombre(P, id){
+    const me = P.find(p => p.id === id), ppl = [me, ...me.partners.map(x => P.find(p => p.id === x)).filter(Boolean)];
+    return (ppl.find(p => p.fam) || {}).fam || '';
+  }
+  function familiaTitulo(P, id){
+    const nm = familiaNombre(P, id); if (nm) return nm;
+    const me = P.find(p => p.id === id), names = [me.name, ...me.partners.map(x => (P.find(p => p.id === x) || {}).name).filter(Boolean)];
+    return 'Familia de ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' y ' + names[names.length - 1] : names[0]);
   }
   function gens(P){
     const g = {}; P.forEach(p => g[p.id] = 0);
@@ -317,8 +344,8 @@
   // </pure>
 
   // ---------- Dibujo ----------
-  function computeLayout(mob){
-    const P = buildPeople(arbol);
+  function computeLayout(mob, only){
+    const P = buildPeople(arbol, only);
     if (!P.length) return null;
     const [W, H, PX, RH, LM] = mob ? [108, 48, 126, 100, 62] : [136, 54, 176, 124, 96];
     const g = gens(P), max = Math.max(0, ...Object.values(g)), lay = layout(P, g, max, PX), X = lay.X;
@@ -362,8 +389,8 @@
   }
 
   // ---------- Exportar como imagen (PNG) ----------
-  async function drawTreeCanvas(){
-    const L = computeLayout(false);
+  async function drawTreeCanvas(only, title){
+    const L = computeLayout(false, only);
     if (!L){ $('statusLine').textContent = 'No hay nada que exportar todavía.'; return null; }
     try { await Promise.all([document.fonts.load("600 16px 'Crimson Pro'"), document.fonts.load("italic 600 44px 'Cormorant'"), document.fonts.load("italic 13px 'Cormorant'")]); } catch (e) {}
     const { P, g, max, X, W, H, RH, sh, wd, ht, RY } = L;
@@ -388,7 +415,7 @@
     }
     // título
     c.textBaseline = 'alphabetic'; c.textAlign = 'left';
-    c.fillStyle = '#eef0fb'; c.font = "italic 600 46px 'Cormorant', serif"; c.fillText('Árbol de Moonlight', pad, 74);
+    c.fillStyle = '#eef0fb'; c.font = "italic 600 46px 'Cormorant', serif"; c.fillText(title || 'Árbol de Moonlight', pad, 74);
     c.fillStyle = '#8f8256'; c.font = "italic 18px 'Cormorant', serif"; c.fillText('Moonlight Team', pad + 2, 100);
     c.save(); c.translate(pad, head);
     // generaciones
@@ -438,15 +465,15 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
   const toBlob = (cv, tipo, q) => new Promise(r => cv.toBlob(r, tipo, q));
-  async function exportImage(){
-    const cv = await drawTreeCanvas(); if (!cv) return;
+  async function exportImage(only, title, base){
+    const cv = await drawTreeCanvas(only, title); if (!cv) return;
     const blob = await toBlob(cv, 'image/png');
     if (!blob){ $('statusLine').textContent = 'No se pudo generar la imagen.'; return; }
-    descargar(blob, 'arbol-moonlight.png');
+    descargar(blob, (base || 'arbol-moonlight') + '.png');
   }
   // PDF de una sola página (la imagen en alta resolución dentro): WhatsApp lo manda como documento, sin comprimirlo
-  async function exportPdf(){
-    const cv = await drawTreeCanvas(); if (!cv) return;
+  async function exportPdf(only, title, base){
+    const cv = await drawTreeCanvas(only, title); if (!cv) return;
     const jb = await toBlob(cv, 'image/jpeg', 0.95);
     if (!jb){ $('statusLine').textContent = 'No se pudo generar el PDF.'; return; }
     const jpg = new Uint8Array(await jb.arrayBuffer());
@@ -471,10 +498,10 @@
     add('xref\n0 6\n0000000000 65535 f \n');
     for (let n = 1; n <= 5; n++) add(String(offs[n]).padStart(10, '0') + ' 00000 n \n');
     add(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
-    descargar(new Blob(parts, { type: 'application/pdf' }), 'arbol-moonlight.pdf');
+    descargar(new Blob(parts, { type: 'application/pdf' }), (base || 'arbol-moonlight') + '.pdf');
   }
-  $('exportImgBtn').addEventListener('click', exportImage);
-  $('exportPdfBtn').addEventListener('click', exportPdf);
+  $('exportImgBtn').addEventListener('click', () => exportImage());
+  $('exportPdfBtn').addEventListener('click', () => exportPdf());
 
 
 
@@ -526,16 +553,23 @@
     const me = by[sel], sh = $('sheet');
     const a = (id) => `<a class="go" data-go="${esc(id)}">${esc(by[id].name)}</a>`;
     const rs = relations(P, sel);
+    const famIds = familyIds(P, sel), famNombre = familiaNombre(P, sel), famTit = familiaTitulo(P, sel);
+    const famBase = 'familia-' + (normalize(famTit).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'moonlight');
     const rows = rs.map(x => x.raw ? `<p class="rel">${a(x.q.id)}: <small>${esc(x.t)}</small></p>` : `<p class="rel">${esc(x.t)} de ${a(x.q.id)}${x.s === 2 ? ' <small>(político)</small>' : ''}</p>`).join('')
       || '<p class="rel"><small>Aún no tiene parentescos registrados.</small></p>';
     sh.innerHTML = `<div class="sh-head"><h2>${esc(me.name)}</h2><button class="x" id="shX" type="button" aria-label="Cerrar">✕</button></div>` +
       (isAdmin ? '<div class="row-btns" style="margin:0 0 10px"><button class="btn-primary" id="editBtn" type="button">Editar</button></div>' : '') +
+      (famNombre ? `<p class="rel"><b>Familia:</b> ${esc(famNombre)}</p>` : '') +
       rows +
-      '';
+      (famIds.size > 1 ? '<div class="row-btns"><button class="btn-ghost" id="famPng" type="button">Exportar familia (PNG)</button><button class="btn-ghost" id="famPdf" type="button">Exportar familia (PDF)</button></div>' : '');
     sh.classList.add('o');
     $('shX').onclick = () => { sel = null; closeSheet(); render(); };
     sh.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', () => { sel = a.dataset.go; render(); }));
     if (isAdmin) $('editBtn').onclick = () => openEdit(P);
+    if (famIds.size > 1){
+      $('famPng').onclick = () => exportImage(famIds, famTit, famBase);
+      $('famPdf').onclick = () => exportPdf(famIds, famTit, famBase);
+    }
   }
 
   // ---------- Edición (solo admin) ----------
@@ -573,6 +607,8 @@
     sh.innerHTML = `<div class="sh-head"><h2>${esc(me.name)}</h2></div>
       <div class="field"><label>Género</label>
         <div class="seg" id="edG" data-v="${me.g}">${[['', 'Sin definir'], ['f', '♀ Femenino'], ['m', '♂ Masculino']].map(([v, t]) => `<button type="button" data-v="${v}" class="${me.g === v ? 'on' : ''}">${t}</button>`).join('')}</div></div>
+      <div class="field"><label for="edFam">Nombre de la familia (opcional)</label>
+        <input id="edFam" type="text" maxlength="40" placeholder="Ej: Casa Neuvillette" value="${esc(me.fam)}" autocomplete="off"></div>
       ${mselHtml('pa', 'Padres / madres', others.filter(x => !desc.has(x.id)), me.parents)}
       ${mselHtml('pt', 'Pareja', others, me.partners)}
       <p class="dialog-error" id="editError"></p>
@@ -591,7 +627,7 @@
       const parejas = vals('pt').concat((cur.parejas || []).filter(oculto));
       try {
         const batch = writeBatch(db);
-        batch.update(doc(db, 'arbol', sel), { genero: $('edG').dataset.v, padres, parejas });
+        batch.update(doc(db, 'arbol', sel), { genero: $('edG').dataset.v, familia: $('edFam').value.trim(), padres, parejas });
         arbol.forEach(x => {
           if (x.id === sel) return;
           const had = (x.parejas || []).includes(sel), want = parejas.includes(x.id);
