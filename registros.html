@@ -141,9 +141,13 @@
   const pct = (n, t) => (t ? n / t * 100 : 0).toLocaleString('es-ES', { maximumFractionDigits: 1 }) + ' %';
   const maskContacto = (v) => String(v || '').split('').map(c => /[0-9]/.test(c) ? '•' : /[a-zA-ZÀ-ÿ]/.test(c) ? 'x' : c).join('');
   const lbl = (m) => m.apodoInterno || m.contacto || m.id;
+  // Personajes que ocupa un miembro: el principal (el que lleva más tiempo) primero, los nuevos después
+  const tms = (o) => o.createdAt && o.createdAt.toMillis ? o.createdAt.toMillis() : Number.MAX_SAFE_INTEGER;
+  const ocupadosDe = (miembroId) => ocupados.filter(o => o.miembroId === miembroId)
+    .sort((a, b) => tms(a) - tms(b) || (a.orden ?? 1e9) - (b.orden ?? 1e9));
   // Personajes de un miembro: a. = ocupa ahora, aba. = ocupaba
   function charParts(m){
-    const cur = ocupados.filter(o => o.miembroId === m.id).map(o => o.nombre);
+    const cur = ocupadosDe(m.id).map(o => o.nombre);
     const past = [...new Set((m.historialPersonajes || []).map(x => x.nombre))];
     return [...cur.map(n => ['a.' + n, 'a']), ...past.map(n => ['aba.' + n, 'aba'])];
   }
@@ -369,7 +373,7 @@
     const entradas = [...Object.values(agg).map(e => {
       const m = miembros.find(x => x.id === e.miembroId);
       e.mask = maskContacto(m?.contacto || e.miembroId);
-      e.personajes = ocupados.filter(o => o.miembroId === e.miembroId).map(o => o.nombre);
+      e.personajes = ocupadosDe(e.miembroId).map(o => o.nombre);
       return e;
     }), ...ex];
     const [y, mo] = id.split('-');
