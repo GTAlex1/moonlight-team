@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="google-site-verification" content="WbcGn3LroF-Xhr23VoOOZvmMuyWUCAkNafNF_t9bpiQ" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Moonlight Team · Roleplay de Genshin Impact en WhatsApp</title>
 <meta name="description" content="Moonlight Team: roleplay de Genshin Impact por WhatsApp. Mira qué personajes están libres, reservados o buscados y cómo unirte al lobby.">
@@ -285,7 +284,7 @@
     if (!res.ok) throw new Error('La API de GitHub respondió con error ' + res.status);
     const data = await res.json();
     return data
-      .filter(item => item.type === 'file' && /\.html?$/i.test(item.name) && item.name.toLowerCase() !== 'index.html')
+      .filter(item => item.type === 'file' && /\.html?$/i.test(item.name) && item.name.toLowerCase() !== 'index.html' && !/^(google[0-9a-f]+|404)\.html$/i.test(item.name))
       .map(item => item.name)
       .sort();
   }
