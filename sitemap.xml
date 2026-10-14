@@ -1,6 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://gtalex1.github.io/moonlight-team/</loc><lastmod>2026-10-13</lastmod></url>
-  <url><loc>https://gtalex1.github.io/moonlight-team/lista.html</loc><lastmod>2026-10-13</lastmod></url>
-  <url><loc>https://gtalex1.github.io/moonlight-team/arbol.html</loc><lastmod>2026-10-13</lastmod></url>
+
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <url>
+       <loc>https://gtalex1.github.io/moonlight-team/</loc>
+       <lastmod>2026-10-13T11:54:50+00:00</lastmod>
+       <priority>1.0000</priority>
+  </url>
+  <url>
+       <loc>https://gtalex1.github.io/moonlight-team/arbol.html</loc>
+       <lastmod>2026-10-13T11:54:50+00:00</lastmod>
+       <priority>0.6400</priority>
+  </url>
+  <url>
+       <loc>https://gtalex1.github.io/moonlight-team/lista.html</loc>
+       <lastmod>2026-10-13T11:54:50+00:00</lastmod>
+       <priority>0.6400</priority>
+  </url>
+  <url>
+       <loc>https://gtalex1.github.io/moonlight-team/index.html</loc>
+       <lastmod>2026-10-13T11:54:50+00:00</lastmod>
+       <priority>0.5120</priority>
+  </url>
 </urlset>
