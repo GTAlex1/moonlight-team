@@ -1,4 +1,4 @@
-:root{
+  :root{
     --bg: #0e1326;
     --bg-deep: #090c1a;
     --paper: rgba(30, 39, 71, 0.62);
@@ -882,6 +882,8 @@
   #lobbyPanel .lobby-card{ margin-left: auto; margin-right: auto; text-align: left; }
   #lobbyPanel .lobby, #lobbyPanel .lobby-admin{ margin-left: auto; margin-right: auto; text-align: left; }
   @media (max-width: 600px){
+    /* Menos efectos pesados en móvil: la niebla con desenfoque y las estrellas fugaces */
+    .mist, .shooting-star{ display: none; }
     .wrap{ padding: 28px 10px 80px; }
     section.panel{ padding: 18px 12px 20px; }
   }
