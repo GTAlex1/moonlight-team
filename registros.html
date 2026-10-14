@@ -216,13 +216,21 @@
   let isAdmin = false, registros = [], miembros = [], ocupados = [], current = null, pending = {};
   let unsubM = null, unsubO = null;
 
+  // Los ocupados son públicos: se leen siempre para ordenar los personajes (el principal primero) también a los visitantes
+  onSnapshot(collection(db, 'ocupados'), (s) => { ocupados = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
   onSnapshot(collection(db, 'registros'), (snap) => {
     registros = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.id.localeCompare(a.id));
     if (!registros.some(r => r.id === current)) current = registros[0]?.id || null;
     render();
   }, () => status('No se pudo conectar con la base de datos.'));
 
-  const pubLabel = (e) => e.miembroId ? (e.personajes?.length ? e.personajes.join(' · ') : e.mask || 'Miembro') : 'Antiguo miembro';
+  // Personajes guardados en un mes ya importado: se reordenan con la antigüedad actual (el que lleva más tiempo, primero)
+  function ordenarPers(arr){
+    const pos = new Map();
+    [...ocupados].sort((a, b) => tms(a) - tms(b) || (a.orden ?? 1e9) - (b.orden ?? 1e9)).forEach((o, i) => { if (!pos.has(o.nombre)) pos.set(o.nombre, i); });
+    return [...arr].sort((a, b) => (pos.has(a) ? pos.get(a) : 1e9) - (pos.has(b) ? pos.get(b) : 1e9));
+  }
+  const pubLabel = (e) => e.miembroId ? (e.personajes?.length ? ordenarPers(e.personajes).join(' · ') : e.mask || 'Miembro') : 'Antiguo miembro';
 
   function rowLi(e, rank, total, max){
     const m = isAdmin && e.miembroId ? miembros.find(x => x.id === e.miembroId) : null;
@@ -423,9 +431,8 @@
     $('fullPanel').hidden = $('importPanel').hidden = !isAdmin;
     if (isAdmin && !unsubM){
       unsubM = onSnapshot(collection(db, 'miembros'), (s) => { miembros = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
-      unsubO = onSnapshot(collection(db, 'ocupados'), (s) => { ocupados = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
     } else if (!isAdmin && unsubM){
-      unsubM(); unsubO(); unsubM = unsubO = null; miembros = []; ocupados = []; $('importOut').innerHTML = '';
+      unsubM(); unsubM = null; miembros = []; $('importOut').innerHTML = '';
     }
     render();
   });
