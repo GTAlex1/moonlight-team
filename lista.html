@@ -690,6 +690,10 @@
     return dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
+  // La fecha de solicitud empieza siempre en el día de hoy (hora local)
+  const hoyISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  $('bFecha').value = hoyISO();
+
   function groupBuscados(){
     const tms = (x) => x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Number.MAX_SAFE_INTEGER;
     const map = new Map();
@@ -930,7 +934,7 @@
     btn.disabled = true;
     try {
       await addDoc(collection(db, 'buscados'), { nombre, pedidoPor, pedidoPorId: ped.id || null, motivo, fecha: fecha || null, orden: nextOrden(buscadosCache), createdAt: serverTimestamp() });
-      $('bNombre').value = ''; $('bPedidoPor').value = ''; $('bMotivo').value = ''; $('bFecha').value = '';
+      $('bNombre').value = ''; $('bPedidoPor').value = ''; $('bMotivo').value = ''; $('bFecha').value = hoyISO();
     } catch (e) {
       statusLine.textContent = 'No se pudo añadir, inténtalo de nuevo.';
     } finally {
