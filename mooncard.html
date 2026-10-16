@@ -34,7 +34,7 @@
   .tabs{ display:flex; gap:6px; flex:0 0 auto; margin-bottom:10px; }
   .tabs button{ flex:1; font-family:'Crimson Pro',serif; font-size:1rem; padding:7px 4px; border:1px solid var(--border); border-radius:3px; background:rgba(255,255,255,0.04); color:var(--ink-soft); cursor:pointer; }
   .tabs button.on{ border-color:var(--gold); color:var(--gold); background:rgba(217,195,131,.12); }
-  .tabbody{ flex:1; min-height:0; overflow-y:auto; padding-right:2px; }
+  .tabbody{ flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding:0 8px 0 2px; }
   .tabpane[hidden]{ display:none; }
   .foot{ flex:0 0 auto; border-top:1px solid var(--border); margin-top:8px; padding-top:8px; }
   .foot .acts{ margin-top:0; }
@@ -175,7 +175,7 @@
 
         <div class="tabpane" id="t3" hidden>
           <div class="f"><label for="iFont">Tipografía del nombre</label><select id="iFont"></select></div>
-          <div class="f"><label for="iSize">Tamaño del nombre</label><input id="iSize" type="range" min="36" max="110" value="76"></div>
+          <div class="f"><label for="iSize">Tamaño del nombre</label><input id="iSize" type="range" min="24" max="110" value="76"></div>
           <div class="row2">
             <div class="f"><label for="iCName">Color del nombre</label><input id="iCName" type="color" value="#eef0fb"></div>
             <div class="f"><label for="iCAcc">Color de los detalles</label><input id="iCAcc" type="color" value="#d9c383"></div>
@@ -272,13 +272,36 @@
       var words = paras[p].split(/\s+/).filter(Boolean), line = '';
       if (!words.length){ out.push(''); continue; }
       for (var i = 0; i < words.length; i++){
-        var t = line ? line + ' ' + words[i] : words[i];
-        if (c.measureText(t).width > maxW && line){ out.push(line); line = words[i]; } else line = t;
+        var w = words[i];
+        if (c.measureText(w).width > maxW){
+          // palabra más ancha que la línea: se parte por letras
+          if (line){ out.push(line); line = ''; }
+          var ch = Array.from(w), cur = '';
+          for (var k = 0; k < ch.length; k++){
+            var tt = cur + ch[k];
+            if (c.measureText(tt).width > maxW && cur){ out.push(cur); cur = ch[k]; } else cur = tt;
+          }
+          line = cur; continue;
+        }
+        var t = line ? line + ' ' + w : w;
+        if (c.measureText(t).width > maxW && line){ out.push(line); line = w; } else line = t;
       }
       out.push(line);
     }
     if (out.length > maxLines){ out = out.slice(0, maxLines); var last = out[maxLines - 1]; while (last.length > 1 && c.measureText(last + '…').width > maxW) last = last.slice(0, -1); out[maxLines - 1] = last.trim() + '…'; }
     return out;
+  }
+  // "Sobre ti": se reduce la letra hasta que todo el texto cabe (nunca se corta con «…» salvo que sea absurdo)
+  function fitBio(c, text, maxW, top, bottom){
+    var size = 25, ls;
+    for (; size >= 13; size--){
+      c.font = '400 ' + size + 'px "Crimson Pro", serif';
+      ls = wrapLines(c, text, maxW, 999);
+      if (top + (ls.length - 1) * size * 1.44 <= bottom) return { ls: ls, size: size, lh: size * 1.44 };
+    }
+    size = 13; c.font = '400 13px "Crimson Pro", serif';
+    var lh = size * 1.44, max = Math.max(1, Math.floor((bottom - top) / lh) + 1);
+    return { ls: wrapLines(c, text, maxW, max), size: size, lh: lh };
   }
   // tamaño en pantalla de un adorno (las fotos conservan su proporción; size = lado mayor)
   function ext(st){ if (!st.img) return { w: st.size, h: st.size }; var k = st.size / Math.max(st.img.width, st.img.height); return { w: st.img.width * k, h: st.img.height * k }; }
@@ -328,7 +351,7 @@
     var nom = (S.nombre || '').trim(), per = (S.sub || '').trim();
     var big = nom || per || ' ', small = nom ? per : '';
     var sz = S.size; c.font = F.s + ' ' + sz + 'px "' + F.f + '", serif';
-    while (sz > 28 && c.measureText(big).width > maxW){ sz -= 2; c.font = F.s + ' ' + sz + 'px "' + F.f + '", serif'; }
+    while (sz > 24 && c.measureText(big).width > maxW){ sz -= 2; c.font = F.s + ' ' + sz + 'px "' + F.f + '", serif'; }
     c.fillStyle = S.nameColor; c.fillText(big, tx, 235, maxW);
     if (small){ c.font = 'italic 500 30px "Cormorant", serif'; c.fillStyle = acc; c.fillText(small, tx, 282, maxW); }
     // adorno divisor
@@ -336,9 +359,9 @@
     c.beginPath(); c.moveTo(tx, 316); c.lineTo(tx + maxW * .42, 316); c.stroke();
     c.beginPath(); c.moveTo(tx + maxW * .58, 316); c.lineTo(tx + maxW, 316); c.stroke(); c.globalAlpha = 1;
     c.fillStyle = acc; c.beginPath(); c.moveTo(tx + maxW * .5, 307); c.lineTo(tx + maxW * .5 + 9, 316); c.lineTo(tx + maxW * .5, 325); c.lineTo(tx + maxW * .5 - 9, 316); c.closePath(); c.fill();
-    c.font = '400 25px "Crimson Pro", serif'; c.fillStyle = th.ink;
-    var ls = wrapLines(c, S.bio, maxW, 5);
-    for (var j = 0; j < ls.length; j++) c.fillText(ls[j], tx, 372 + j * 36);
+    var fb = fitBio(c, S.bio, maxW, 372, S.tag ? 535 : 560);
+    c.font = '400 ' + fb.size + 'px "Crimson Pro", serif'; c.fillStyle = th.ink;
+    for (var j = 0; j < fb.ls.length; j++) c.fillText(fb.ls[j], tx, 372 + j * fb.lh);
     if (S.tag){ c.textAlign = 'right'; c.font = 'italic 500 24px "Cormorant", serif'; c.fillStyle = acc; c.globalAlpha = .85; c.fillText('Moonlight Team 🌙', W - 56, H - 50); c.globalAlpha = 1; c.textAlign = 'left'; }
     // adornos
     for (var k = 0; k < S.stickers.length; k++){
@@ -352,14 +375,20 @@
     }
   }
   var cv = $('card'), ctx = cv.getContext('2d'), raf = 0;
+  // El tamaño máximo del nombre depende de lo largo que sea: el deslizador no deja pasarse
+  function limitSize(){
+    var F = FONTS[S.font], big = (S.nombre || '').trim() || (S.sub || '').trim() || ' ', maxW = W - 450 - 70, m = 24;
+    for (var sz = 110; sz >= 24; sz -= 2){ ctx.font = F.s + ' ' + sz + 'px "' + F.f + '", serif'; if (ctx.measureText(big).width <= maxW){ m = sz; break; } }
+    var r = $('iSize'); r.max = m; r.min = Math.min(24, m); r.value = Math.min(S.size, m);
+  }
   function redraw(){ if (raf) return; raf = requestAnimationFrame(function(){ raf = 0; draw(ctx, true); }); }
   function ensureFont(){ var F = FONTS[S.font]; return Promise.all([document.fonts.load(F.s + ' 40px "' + F.f + '"'), document.fonts.load('italic 500 30px "Cormorant"'), document.fonts.load('400 25px "Crimson Pro"')]).catch(function(){}); }
 
   // ---------- Controles ----------
   var sel = $('iFont'); FONTS.forEach(function(f, i){ var o = document.createElement('option'); o.value = i; o.textContent = f.n; o.style.fontFamily = '"' + f.f + '", serif'; sel.appendChild(o); });
-  sel.onchange = function(){ S.font = +sel.value; ensureFont().then(redraw); };
-  $('iNombre').oninput = function(){ S.nombre = this.value; redraw(); };
-  $('iSub').oninput = function(){ S.sub = this.value; redraw(); };
+  sel.onchange = function(){ S.font = +sel.value; ensureFont().then(function(){ limitSize(); redraw(); }); };
+  $('iNombre').oninput = function(){ S.nombre = this.value; limitSize(); redraw(); };
+  $('iSub').oninput = function(){ S.sub = this.value; limitSize(); redraw(); };
   $('iBio').oninput = function(){ S.bio = this.value; redraw(); };
   $('iSize').oninput = function(){ S.size = +this.value; redraw(); };
   $('iCName').oninput = function(){ S.nameColor = this.value; redraw(); };
@@ -407,7 +436,7 @@
   $('bStClr').onclick = function(){ S.stickers = []; S.sel = -1; cv.style.touchAction = 'none'; redraw(); };
   $('bReset').onclick = function(){ if (!confirm('¿Empezar de nuevo? Se pierde el diseño actual.')) return; S = DEF();
     $('iNombre').value = S.nombre; $('iSub').value = S.sub; $('iBio').value = S.bio; $('iSize').value = S.size; $('iZoom').value = 1; $('iDim').value = 40; $('iBgZoom').value = 1; $('iStSize').value = 70; $('iFont').value = 0; $('iCName').value = S.nameColor; $('iCAcc').value = S.accent; $('iTag').checked = true;
-    document.querySelectorAll('#sShape button').forEach(function(x, i){ x.classList.toggle('on', !i); }); sw.querySelectorAll('button').forEach(function(x, i){ x.classList.toggle('on', !i); }); cv.style.touchAction = 'none'; ensureFont().then(redraw); };
+    document.querySelectorAll('#sShape button').forEach(function(x, i){ x.classList.toggle('on', !i); }); sw.querySelectorAll('button').forEach(function(x, i){ x.classList.toggle('on', !i); }); cv.style.touchAction = 'none'; ensureFont().then(function(){ limitSize(); redraw(); }); };
 
   // arrastrar adornos sobre la tarjeta
   var drag = null;
@@ -447,8 +476,8 @@
     });
   };
 
-  ensureFont().then(redraw); redraw();
-  if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', redraw);
+  ensureFont().then(function(){ limitSize(); redraw(); }); redraw();
+  if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', function(){ limitSize(); redraw(); });
 })();
 </script>
 </body>
