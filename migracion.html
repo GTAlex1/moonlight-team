@@ -144,7 +144,7 @@
       log('Leyendo datos…'); await loadAll();
       const antes = D.miembros.length, { map, ops } = await makePlan();
       if (!Object.keys(map).length){ log('Nada que migrar.'); return; }
-      const all = [...ops.sets.map(x => [...x, 'set']), ...ops.updates.map(x => [...x, 'upd']), ...ops.deletes.map(x => [...x, 'del'])];
+      const all = [...ops.sets.map(x => [...x, 'set']), ...ops.updates.map(x => [...x, 'upd']), ...ops.deletes.map(x => [x[0], null, 'del'])];
       log(`Escribiendo ${all.length} operaciones (primero se crean los nuevos, al final se borran los viejos)…`);
       await commitAll(all);
       log('Verificando…'); await loadAll();
