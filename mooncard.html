@@ -105,6 +105,8 @@
   .f input[type=color]::-webkit-color-swatch-wrapper{ padding:0; }
   .f input[type=color]::-webkit-color-swatch{ border:none; border-radius:2px; }
   .f input[type=color]::-moz-color-swatch{ border:none; border-radius:2px; }
+  .f select{ color-scheme:dark; }
+  .f select option{ background:#141a36; color:#eef0fb; font-size:1.1rem; padding:6px; }
   /* barra de acciones */
   .foot{ border-top:1px solid rgba(197,209,255,.14); padding-top:12px; }
   .foot .acts{ gap:12px; align-items:center; }
@@ -354,7 +356,7 @@
   function ensureFont(){ var F = FONTS[S.font]; return Promise.all([document.fonts.load(F.s + ' 40px "' + F.f + '"'), document.fonts.load('italic 500 30px "Cormorant"'), document.fonts.load('400 25px "Crimson Pro"')]).catch(function(){}); }
 
   // ---------- Controles ----------
-  var sel = $('iFont'); FONTS.forEach(function(f, i){ var o = document.createElement('option'); o.value = i; o.textContent = f.n; sel.appendChild(o); });
+  var sel = $('iFont'); FONTS.forEach(function(f, i){ var o = document.createElement('option'); o.value = i; o.textContent = f.n; o.style.fontFamily = '"' + f.f + '", serif'; sel.appendChild(o); });
   sel.onchange = function(){ S.font = +sel.value; ensureFont().then(redraw); };
   $('iNombre').oninput = function(){ S.nombre = this.value; redraw(); };
   $('iSub').oninput = function(){ S.sub = this.value; redraw(); };
