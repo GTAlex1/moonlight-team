@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contactos — Moonlight Team</title>
-<meta name="robots" content="noindex, nofollow" data-auto>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -82,8 +81,8 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getFirestore, collection, doc, setDoc, getDoc, deleteDoc, updateDoc, deleteField,
-    onSnapshot, query, orderBy, serverTimestamp
+    getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, deleteField,
+    onSnapshot, query, where, orderBy, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import {
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
@@ -141,6 +140,10 @@
     }).join('');
   }
   // El propio contacto (normalizado) es el ID del documento del miembro en Firestore.
+  // Identificador interno (DNI) de cada miembro: aleatorio, no revela el contacto y no cambia nunca
+  const nuevoId = () => 'm-' + [...crypto.getRandomValues(new Uint8Array(12))].map(b => (b % 36).toString(36)).join('');
+
+  // Contacto normalizado: sirve para reconocer a alguien que ya existe (no es el id del documento)
   function memberIdFrom(contacto){
     return String(contacto || '').trim().toLowerCase().replace(/[\/\s]+/g, '_');
   }
@@ -572,17 +575,25 @@
       const link = async () => {
         const val = input.value.trim();
         if (!val) return;
-        const memberId = memberIdFrom(val);
-        if (!memberId) return;
-        const memberRef = doc(db, 'miembros', memberId);
-        const existing = await getDoc(memberRef);
-        if (!existing.exists()){
+        const key = memberIdFrom(val);
+        if (!key) return;
+        // ¿Ya existe? Primero el formato antiguo (id = contacto) y luego por el campo contactoKey
+        let memberId = null;
+        if ((await getDoc(doc(db, 'miembros', key))).exists()) memberId = key;
+        else {
+          const found = await getDocs(query(collection(db, 'miembros'), where('contactoKey', '==', key)));
+          if (!found.empty) memberId = found.docs[0].id;
+        }
+        if (!memberId){
           const nacISO = nacNuevo.getISO();
           if (!nacISO){ nacNuevo.querySelector('input').focus(); statusLine.textContent = 'Para crear un miembro nuevo hace falta su fecha de nacimiento.'; return; }
-          await setDoc(memberRef, {
+          const maxNum = Math.max(0, ...miembrosCache.map(m => parseInt(String(m.apodoInterno || '').replace(/\D/g, ''), 10) || 0));
+          memberId = nuevoId();
+          await setDoc(doc(db, 'miembros', memberId), {
             contacto: val,
+            contactoKey: key,
             nacimiento: nacISO,
-            apodoInterno: 'Miembro-' + String(miembrosCache.length + 1).padStart(3, '0'),
+            apodoInterno: 'Miembro-' + String(maxNum + 1).padStart(3, '0'),
             cambiosDisponibles: 1,
             salidasDisponibles: 3,
             activo: true,
