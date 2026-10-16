@@ -99,13 +99,14 @@
         <button type="button" data-t="t1" class="on">Texto</button>
         <button type="button" data-t="t2">Imagen</button>
         <button type="button" data-t="t3">Estilo</button>
+        <button type="button" data-t="t5">Fondo</button>
         <button type="button" data-t="t4">Adornos</button>
       </div>
 
       <div class="tabbody">
         <div class="tabpane" id="t1">
-          <div class="f"><label for="iNombre">Nombre</label><input id="iNombre" type="text" maxlength="24" value="Tu nombre" autocomplete="off"></div>
-          <div class="f"><label for="iSub">Personaje o rol</label><input id="iSub" type="text" maxlength="40" value="Tu personaje o rol" autocomplete="off"></div>
+          <div class="f"><label for="iSub">Personaje</label><input id="iSub" type="text" maxlength="40" value="Tu personaje" autocomplete="off"></div>
+          <div class="f"><label for="iNombre">Tu nombre (opcional)</label><input id="iNombre" type="text" maxlength="24" value="" placeholder="Si lo dejas vacío, se verá tu personaje en grande" autocomplete="off"></div>
           <div class="f"><label for="iBio">Sobre ti</label><textarea id="iBio" maxlength="160">Cuéntanos un poco de ti bajo la luna…</textarea></div>
           <div class="f chk"><input id="iTag" type="checkbox" checked><label for="iTag" style="margin:0">Mostrar «Moonlight Team» en la tarjeta</label></div>
         </div>
@@ -131,7 +132,19 @@
             <div class="f"><label for="iCName">Color del nombre</label><input id="iCName" type="color" value="#eef0fb"></div>
             <div class="f"><label for="iCAcc">Color de los detalles</label><input id="iCAcc" type="color" value="#d9c383"></div>
           </div>
-          <div class="f"><label>Fondo</label><div class="sw" id="swatches"></div></div>
+        </div>
+
+        <div class="tabpane" id="t5" hidden>
+          <div class="f"><label>Estilo de fondo</label><div class="sw" id="swatches"></div></div>
+          <div class="f">
+            <label>Foto de fondo (opcional)</label>
+            <div class="acts" style="margin-top:0">
+              <button class="mini" id="bBg" type="button">Elegir foto</button>
+              <button class="mini" id="bBgQ" type="button">Quitar</button>
+              <input type="file" id="iBg" accept="image/*" hidden>
+            </div>
+          </div>
+          <div class="f"><label for="iDim">Oscurecer la foto</label><input id="iDim" type="range" min="0" max="85" value="40"></div>
         </div>
 
         <div class="tabpane" id="t4" hidden>
@@ -139,7 +152,11 @@
             <label>Toca un adorno para añadirlo</label>
             <div class="stk" id="stk"></div>
           </div>
-          <div class="f"><label for="iStSize">Tamaño del adorno seleccionado</label><input id="iStSize" type="range" min="30" max="180" value="70" style="width:100%;padding:0"></div>
+          <div class="f">
+            <div class="acts" style="margin-top:0"><button class="mini" id="bStImg" type="button">📷 Subir fotos como adornos</button><input type="file" id="iStImg" accept="image/*" multiple hidden></div>
+            <p class="cc-note" style="margin:6px 0 0">Vale cualquier imagen. Los PNG con fondo transparente quedan como pegatinas.</p>
+          </div>
+          <div class="f"><label for="iStSize">Tamaño del adorno seleccionado</label><input id="iStSize" type="range" min="30" max="400" value="70" style="width:100%;padding:0"></div>
           <div class="acts"><button class="mini" id="bStDel" type="button">Quitar seleccionado</button><button class="mini" id="bStClr" type="button">Quitar todos</button></div>
         </div>
       </div>
@@ -186,7 +203,7 @@
     { n:'Pergamino', a:'#f3ecdc', b:'#e3d8bd', glow:'#c9a24a', star:'', name:'#2a2438', acc:'#9a7424', ink:'#4a4258' }
   ];
   var ICONS = ['🌙','✦','⭐','🌸','❄️','🔥','⚡','🍃','💧','☁️','🦋','👑'];
-  var DEF = function(){ return { nombre:'Tu nombre', sub:'Tu personaje o rol', bio:'Cuéntanos un poco de ti bajo la luna…', font:0, size:76, nameColor:THEMES[0].name, accent:THEMES[0].acc, theme:0, shape:'circle', zoom:1, tag:true, img:null, stickers:[], sel:-1 }; };
+  var DEF = function(){ return { nombre:'', sub:'Tu personaje', bg:null, dim:.4, bio:'Cuéntanos un poco de ti bajo la luna…', font:0, size:76, nameColor:THEMES[0].name, accent:THEMES[0].acc, theme:0, shape:'circle', zoom:1, tag:true, img:null, stickers:[], sel:-1 }; };
   var S = DEF();
 
   // ---------- Estrellas del fondo de la página ----------
@@ -213,13 +230,23 @@
     if (out.length > maxLines){ out = out.slice(0, maxLines); var last = out[maxLines - 1]; while (last.length > 1 && c.measureText(last + '…').width > maxW) last = last.slice(0, -1); out[maxLines - 1] = last.trim() + '…'; }
     return out;
   }
+  // tamaño en pantalla de un adorno (las fotos conservan su proporción; size = lado mayor)
+  function ext(st){ if (!st.img) return { w: st.size, h: st.size }; var k = st.size / Math.max(st.img.width, st.img.height); return { w: st.img.width * k, h: st.img.height * k }; }
+  // reduce imágenes grandes para no gastar memoria
+  function fit(b, max){ var k = Math.min(1, max / Math.max(b.width, b.height)); if (k === 1) return b; var c = document.createElement('canvas'); c.width = Math.max(1, Math.round(b.width * k)); c.height = Math.max(1, Math.round(b.height * k)); c.getContext('2d').drawImage(b, 0, 0, c.width, c.height); return c; }
   function draw(c, preview){
     var th = THEMES[S.theme], F = FONTS[S.font], acc = S.accent;
     var bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, th.a); bg.addColorStop(1, th.b);
     c.fillStyle = bg; c.fillRect(0, 0, W, H);
-    var gl = c.createRadialGradient(W * .86, 40, 0, W * .86, 40, 520); gl.addColorStop(0, th.glow + '40'); gl.addColorStop(1, th.glow + '00');
-    c.fillStyle = gl; c.fillRect(0, 0, W, H);
-    if (th.star){
+    if (S.bg){
+      var bs = Math.max(W / S.bg.width, H / S.bg.height);
+      c.drawImage(S.bg, (W - S.bg.width * bs) / 2, (H - S.bg.height * bs) / 2, S.bg.width * bs, S.bg.height * bs);
+      c.globalAlpha = S.dim; c.fillStyle = th.b; c.fillRect(0, 0, W, H); c.globalAlpha = 1;
+    } else {
+      var gl = c.createRadialGradient(W * .86, 40, 0, W * .86, 40, 520); gl.addColorStop(0, th.glow + '40'); gl.addColorStop(1, th.glow + '00');
+      c.fillStyle = gl; c.fillRect(0, 0, W, H);
+    }
+    if (th.star && !S.bg){
       var seed = 4242, rnd = function(){ return (seed = (seed * 16807) % 2147483647) / 2147483647; };
       for (var i = 0; i < 90; i++){ c.fillStyle = 'rgba(' + th.star + ',' + (0.2 + rnd() * 0.7).toFixed(2) + ')'; c.beginPath(); c.arc(rnd() * W, rnd() * H, 0.6 + rnd() * 1.2, 0, 7); c.fill(); }
     }
@@ -243,10 +270,12 @@
     // textos
     var tx = 450, maxW = W - tx - 70;
     c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+    var nom = (S.nombre || '').trim(), per = (S.sub || '').trim();
+    var big = nom || per || ' ', small = nom ? per : '';
     var sz = S.size; c.font = F.s + ' ' + sz + 'px "' + F.f + '", serif';
-    while (sz > 28 && c.measureText(S.nombre || ' ').width > maxW){ sz -= 2; c.font = F.s + ' ' + sz + 'px "' + F.f + '", serif'; }
-    c.fillStyle = S.nameColor; c.fillText(S.nombre, tx, 235);
-    c.font = 'italic 500 30px "Cormorant", serif'; c.fillStyle = acc; c.fillText(S.sub, tx, 282, maxW);
+    while (sz > 28 && c.measureText(big).width > maxW){ sz -= 2; c.font = F.s + ' ' + sz + 'px "' + F.f + '", serif'; }
+    c.fillStyle = S.nameColor; c.fillText(big, tx, 235, maxW);
+    if (small){ c.font = 'italic 500 30px "Cormorant", serif'; c.fillStyle = acc; c.fillText(small, tx, 282, maxW); }
     // adorno divisor
     c.strokeStyle = acc; c.globalAlpha = .6; c.lineWidth = 1.4;
     c.beginPath(); c.moveTo(tx, 316); c.lineTo(tx + maxW * .42, 316); c.stroke();
@@ -259,9 +288,12 @@
     // adornos
     for (var k = 0; k < S.stickers.length; k++){
       var st = S.stickers[k];
-      c.font = st.size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillStyle = acc; c.fillText(st.sym, st.x, st.y);
-      if (preview && k === S.sel){ c.strokeStyle = acc; c.lineWidth = 2; c.setLineDash([6, 6]); c.beginPath(); c.arc(st.x, st.y, st.size * .62, 0, 7); c.stroke(); c.setLineDash([]); }
+      var ex = ext(st);
+      if (st.img){ c.drawImage(st.img, st.x - ex.w / 2, st.y - ex.h / 2, ex.w, ex.h); }
+      else { c.font = st.size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = acc; c.fillText(st.sym, st.x, st.y); }
+      if (preview && k === S.sel){ c.strokeStyle = acc; c.lineWidth = 2; c.setLineDash([6, 6]);
+        if (st.img){ c.strokeRect(st.x - ex.w / 2 - 4, st.y - ex.h / 2 - 4, ex.w + 8, ex.h + 8); } else { c.beginPath(); c.arc(st.x, st.y, st.size * .62, 0, 7); c.stroke(); }
+        c.setLineDash([]); }
     }
   }
   var cv = $('card'), ctx = cv.getContext('2d'), raf = 0;
@@ -277,6 +309,25 @@
   $('iSize').oninput = function(){ S.size = +this.value; redraw(); };
   $('iCName').oninput = function(){ S.nameColor = this.value; redraw(); };
   $('iCAcc').oninput = function(){ S.accent = this.value; redraw(); };
+  $('bBg').onclick = function(){ $('iBg').click(); };
+  $('bBgQ').onclick = function(){ S.bg = null; redraw(); };
+  $('iDim').oninput = function(){ S.dim = +this.value / 100; redraw(); };
+  $('iBg').onchange = function(e){
+    var f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    createImageBitmap(f).then(function(b){ S.bg = fit(b, 2000); redraw(); }).catch(function(){ $('msg').textContent = 'No se pudo leer esa imagen, prueba con otra.'; });
+  };
+  $('bStImg').onclick = function(){ $('iStImg').click(); };
+  $('iStImg').onchange = function(e){
+    var fs = Array.prototype.slice.call(e.target.files); e.target.value = '';
+    fs.forEach(function(f){
+      if (S.stickers.length >= 40){ $('msg').textContent = 'Máximo 40 adornos.'; return; }
+      createImageBitmap(f).then(function(b){
+        var n = S.stickers.length;
+        S.stickers.push({ img: fit(b, 800), x: W / 2 + (n % 5) * 24 - 48, y: H / 2 + (n % 5) * 18 - 36, size: 180 });
+        S.sel = S.stickers.length - 1; $('iStSize').value = 180; cv.style.touchAction = 'none'; redraw();
+      }).catch(function(){ $('msg').textContent = 'No se pudo leer una de las imágenes.'; });
+    });
+  };
   $('iZoom').oninput = function(){ S.zoom = +this.value; redraw(); };
   $('iTag').onchange = function(){ S.tag = this.checked; redraw(); };
   document.querySelectorAll('#sShape button').forEach(function(b){ b.onclick = function(){ S.shape = b.dataset.v; document.querySelectorAll('#sShape button').forEach(function(x){ x.classList.toggle('on', x === b); }); redraw(); }; });
@@ -299,7 +350,7 @@
   $('bStDel').onclick = function(){ if (S.sel >= 0){ S.stickers.splice(S.sel, 1); S.sel = -1; if (!S.stickers.length) cv.style.touchAction = 'auto'; redraw(); } };
   $('bStClr').onclick = function(){ S.stickers = []; S.sel = -1; cv.style.touchAction = 'auto'; redraw(); };
   $('bReset').onclick = function(){ if (!confirm('¿Empezar de nuevo? Se pierde el diseño actual.')) return; S = DEF();
-    $('iNombre').value = S.nombre; $('iSub').value = S.sub; $('iBio').value = S.bio; $('iSize').value = S.size; $('iZoom').value = 1; $('iFont').value = 0; $('iCName').value = S.nameColor; $('iCAcc').value = S.accent; $('iTag').checked = true;
+    $('iNombre').value = S.nombre; $('iSub').value = S.sub; $('iBio').value = S.bio; $('iSize').value = S.size; $('iZoom').value = 1; $('iDim').value = 40; $('iStSize').value = 70; $('iFont').value = 0; $('iCName').value = S.nameColor; $('iCAcc').value = S.accent; $('iTag').checked = true;
     document.querySelectorAll('#sShape button').forEach(function(x, i){ x.classList.toggle('on', !i); }); sw.querySelectorAll('button').forEach(function(x, i){ x.classList.toggle('on', !i); }); cv.style.touchAction = 'auto'; ensureFont().then(redraw); };
 
   // arrastrar adornos sobre la tarjeta
@@ -307,7 +358,7 @@
   function pos(e){ var r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
   cv.addEventListener('pointerdown', function(e){
     var p = pos(e); S.sel = -1;
-    for (var i = S.stickers.length - 1; i >= 0; i--){ var s = S.stickers[i]; if (Math.hypot(p.x - s.x, p.y - s.y) <= Math.max(26, s.size * .6)){ S.sel = i; drag = { dx: p.x - s.x, dy: p.y - s.y }; $('iStSize').value = s.size; try { cv.setPointerCapture(e.pointerId); } catch (x) {} break; } }
+    for (var i = S.stickers.length - 1; i >= 0; i--){ var s = S.stickers[i]; var ex = ext(s), hit = s.img ? (Math.abs(p.x - s.x) <= Math.max(26, ex.w / 2) && Math.abs(p.y - s.y) <= Math.max(26, ex.h / 2)) : (Math.hypot(p.x - s.x, p.y - s.y) <= Math.max(26, s.size * .6)); if (hit){ S.sel = i; drag = { dx: p.x - s.x, dy: p.y - s.y }; $('iStSize').value = s.size; try { cv.setPointerCapture(e.pointerId); } catch (x) {} break; } }
     redraw();
   });
   cv.addEventListener('pointermove', function(e){ if (!drag || S.sel < 0) return; var p = pos(e), s = S.stickers[S.sel]; s.x = Math.max(0, Math.min(W, p.x - drag.dx)); s.y = Math.max(0, Math.min(H, p.y - drag.dy)); redraw(); });
@@ -320,7 +371,7 @@
       var c = out.getContext('2d'); c.scale(k, k); draw(c, false);
       out.toBlob(function(b){
         if (!b){ $('msg').textContent = 'No se pudo generar la imagen.'; return; }
-        var a = document.createElement('a'), nm = (S.nombre || 'tarjeta').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tarjeta';
+        var a = document.createElement('a'), nm = (S.nombre || S.sub || 'tarjeta').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tarjeta';
         a.href = URL.createObjectURL(b); a.download = 'mooncard-' + nm + '.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
         $('msg').textContent = 'Listo. Si la mandas por WhatsApp, envíala como Documento para que no se comprima.';
       }, 'image/png');
