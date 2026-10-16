@@ -21,6 +21,7 @@ def site_url():
     owner, _, repo = REPO.partition('/')
     if not owner:
         sys.exit('Falta GITHUB_REPOSITORY')
+    owner = owner.lower()  # el host va siempre en minúsculas (igual que la canónica y la propiedad de Search Console)
     return f'https://{owner}.github.io/' + ('' if repo.lower() == f'{owner}.github.io'.lower() else repo + '/')
 
 

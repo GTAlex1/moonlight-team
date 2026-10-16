@@ -247,7 +247,7 @@
     if (nuevoTotal >= WARN_LIMIT && !m.baneado){
       const ocupadosDelMiembro = ocupadosCache.filter(o => o.miembroId === m.id);
       // Solicitudes pendientes (Buscados) hechas por este miembro: se quitan también
-      const nombresPide = new Set([m.contacto, m.id].concat(ocupadosDelMiembro.map(o => o.origenBuscado && o.origenBuscado.pedidoPor)).filter(Boolean).map(normalize));
+      const nombresPide = new Set([m.contacto, m.id].concat(ocupadosDelMiembro.flatMap(o => [o.origenBuscado].concat(o.origenesExtra || []).map(x => x && x.pedidoPor))).filter(Boolean).map(normalize));
       for (const b of buscadosCache.filter(b => b.pedidoPorId === m.id || nombresPide.has(normalize(b.pedidoPor)))){
         await deleteDoc(doc(db, 'buscados', b.id));
       }
