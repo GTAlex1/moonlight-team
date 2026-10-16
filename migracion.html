@@ -56,7 +56,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getFirestore, collection, doc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, doc, getDocs, writeBatch, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   const app = initializeApp({
@@ -129,13 +129,24 @@
   };
   $('chk').onchange = () => { $('bGo').disabled = !$('chk').checked; };
 
+  const run1 = ([ref, data, kind]) => kind === 'del' ? deleteDoc(ref) : kind === 'set' ? setDoc(ref, data) : updateDoc(ref, data);
+  // Escribe por lotes; si un lote falla, lo repite documento a documento para saber cuál da el error. Devuelve los fallos.
   async function commitAll(list){
-    for (let i = 0; i < list.length; i += 400){
-      const b = writeBatch(db);
-      list.slice(i, i + 400).forEach(([ref, data, kind]) => kind === 'del' ? b.delete(ref) : kind === 'set' ? b.set(ref, data) : b.update(ref, data));
-      await b.commit();
-      log(`  ${Math.min(i + 400, list.length)} / ${list.length}`);
+    const fallos = [];
+    for (let i = 0; i < list.length; i += 200){
+      const parte = list.slice(i, i + 200), b = writeBatch(db);
+      try {
+        parte.forEach(([ref, data, kind]) => kind === 'del' ? b.delete(ref) : kind === 'set' ? b.set(ref, data) : b.update(ref, data));
+        await b.commit();
+      } catch (e) {
+        log(`  El lote falló (${e.code || ''}: ${e.message}). Probando uno a uno…`);
+        for (const op of parte){
+          try { await run1(op); } catch (e2) { fallos.push(op[0].path); log(`  FALLO en ${op[0].path} [${op[2]}]: ${e2.code || ''} ${e2.message}`); }
+        }
+      }
+      log(`  ${Math.min(i + 200, list.length)} / ${list.length}`);
     }
+    return fallos;
   }
   $('bGo').onclick = async () => {
     if (!confirm('Se va a escribir en la base de datos. ¿Seguro?')) return;
@@ -144,9 +155,12 @@
       log('Leyendo datos…'); await loadAll();
       const antes = D.miembros.length, { map, ops } = await makePlan();
       if (!Object.keys(map).length){ log('Nada que migrar.'); return; }
-      const all = [...ops.sets.map(x => [...x, 'set']), ...ops.updates.map(x => [...x, 'upd']), ...ops.deletes.map(x => [x[0], null, 'del'])];
-      log(`Escribiendo ${all.length} operaciones (primero se crean los nuevos, al final se borran los viejos)…`);
-      await commitAll(all);
+      const fases = [['crear nuevos', ops.sets.map(x => [...x, 'set'])], ['actualizar referencias', ops.updates.map(x => [...x, 'upd'])], ['borrar antiguos', ops.deletes.map(x => [x[0], null, 'del'])]];
+      for (const [nombre, lista] of fases){
+        log(`Fase: ${nombre} (${lista.length})…`);
+        const fallos = await commitAll(lista);
+        if (fallos.length){ log(`PARADO: fallaron ${fallos.length} operaciones en «${nombre}». No se ha borrado nada que no estuviera ya migrado. Tienes la copia de seguridad.`); return; }
+      }
       log('Verificando…'); await loadAll();
       const viejos = new Set(Object.keys(map)); let bad = 0;
       D.ocupados.forEach(o => { if (viejos.has(o.data.miembroId)) bad++; });
@@ -154,7 +168,7 @@
       D.registros.forEach(r => (r.data.entradas || []).forEach(e => { if (e && viejos.has(e.miembroId)) bad++; }));
       D.miembros.forEach(m => { if (viejos.has(m.id)) bad++; });
       log(D.miembros.length === antes && !bad ? `LISTO. ${D.miembros.length} miembros, ninguna referencia al identificador antiguo.` : `REVISAR: miembros antes ${antes}, ahora ${D.miembros.length}, referencias antiguas ${bad}. Tienes la copia de seguridad.`);
-    } catch (e) { log('ERROR: ' + (e.code || e.message) + '. Tienes la copia de seguridad.'); }
+    } catch (e) { log('ERROR: ' + (e.code || '') + ' ' + e.message + '. Tienes la copia de seguridad.'); }
   };
 </script>
 </body>
