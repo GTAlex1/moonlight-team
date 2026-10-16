@@ -83,7 +83,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, deleteField,
-    onSnapshot, query, where, orderBy, serverTimestamp
+    onSnapshot, query, where, orderBy, serverTimestamp, arrayUnion
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import {
     getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
@@ -466,6 +466,24 @@
     });
   }
 
+  // Cambiar el teléfono/usuario de un miembro sin tocar su identificador interno
+  async function cambiarContacto(id){
+    const m = miembrosCache.find(x => x.id === id); if (!m) return;
+    const val = (prompt('Nuevo teléfono o usuario de WhatsApp para ' + (m.contacto || m.id) + ':', m.contacto || '') || '').trim();
+    if (!val || val === m.contacto) return;
+    const key = memberIdFrom(val);
+    if (!key) return;
+    const otro = miembrosCache.find(x => x.id !== id && (x.contactoKey === key || x.id === key || (x.contactosAnteriores || []).includes(key)));
+    if (otro){ statusLine.textContent = 'Ese contacto ya pertenece a otro miembro (' + (otro.apodoInterno || otro.id) + ').'; return; }
+    try {
+      const viejoKey = m.contactoKey || memberIdFrom(m.contacto || m.id);
+      await updateDoc(doc(db, 'miembros', id), { contacto: val, contactoKey: key, contactosAnteriores: arrayUnion(viejoKey) });
+      await Promise.all(ocupadosCache.filter(o => o.miembroId === id)
+        .map(o => updateDoc(doc(db, 'ocupados', o.id), { contactoMask: maskContacto(val) })));
+      statusLine.textContent = 'Contacto actualizado.';
+    } catch (e) { statusLine.textContent = 'No se pudo cambiar el contacto: ' + (e.code || e.message); }
+  }
+
   function renderAdmin(roles){
     memberList.innerHTML = '';
     const sorted = [...miembrosCache].sort(orderComparator);
@@ -541,6 +559,11 @@
 
       const actions = document.createElement('div');
       actions.className = 'li-actions';
+      const chBtn = document.createElement('button');
+      chBtn.className = 'icon-btn';
+      chBtn.textContent = 'Cambiar contacto';
+      chBtn.addEventListener('click', () => cambiarContacto(r.id));
+      actions.appendChild(chBtn);
       const delBtn = document.createElement('button');
       delBtn.className = 'icon-btn';
       delBtn.textContent = 'Quitar';
@@ -584,6 +607,10 @@
         else {
           const found = await getDocs(query(collection(db, 'miembros'), where('contactoKey', '==', key)));
           if (!found.empty) memberId = found.docs[0].id;
+          else {
+            const prev = await getDocs(query(collection(db, 'miembros'), where('contactosAnteriores', 'array-contains', key)));
+            if (!prev.empty) memberId = prev.docs[0].id;
+          }
         }
         if (!memberId){
           const nacISO = nacNuevo.getISO();

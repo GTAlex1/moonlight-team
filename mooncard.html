@@ -20,11 +20,27 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,500;0,600;1,500;1,600&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@600&family=Playfair+Display:ital,wght@1,600&family=Dancing+Script:wght@700&family=Great+Vibes&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <style>
-  .wrap{ max-width:900px; }
-  #cardPanel{ padding:14px; }
-  #card{ display:block; width:100%; height:auto; border-radius:10px; box-shadow:0 10px 34px rgba(0,0,0,.45); }
+  html, body{ height:100%; overflow:hidden; }
+  .app{ position:relative; z-index:2; height:100dvh; max-width:1180px; margin:0 auto; padding:10px 14px; display:flex; flex-direction:column; gap:8px; }
+  .bar{ display:flex; align-items:center; gap:14px; flex:0 0 auto; }
+  .bar h1{ margin:0; font-size:1.7rem; line-height:1.1; }
+  .bar .back-link{ margin:0; white-space:nowrap; flex:0 0 auto; overflow:visible; }
+  .bar .sub{ margin:0; font-size:.92rem; color:var(--ink-soft); }
+  .main{ flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1.55fr) minmax(330px,1fr); gap:14px; }
+  .main > section.panel{ margin:0; min-height:0; }
+  #cardPanel{ padding:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  #card{ display:block; width:min(100%, calc((100dvh - 135px) * 1.6129)); height:auto; border-radius:10px; box-shadow:0 10px 34px rgba(0,0,0,.45); }
+  #ctrl{ padding:10px 12px; display:flex; flex-direction:column; overflow:hidden; }
+  .tabs{ display:flex; gap:6px; flex:0 0 auto; margin-bottom:10px; }
+  .tabs button{ flex:1; font-family:'Crimson Pro',serif; font-size:1rem; padding:7px 4px; border:1px solid var(--border); border-radius:3px; background:rgba(255,255,255,0.04); color:var(--ink-soft); cursor:pointer; }
+  .tabs button.on{ border-color:var(--gold); color:var(--gold); background:rgba(217,195,131,.12); }
+  .tabbody{ flex:1; min-height:0; overflow-y:auto; padding-right:2px; }
+  .tabpane[hidden]{ display:none; }
+  .foot{ flex:0 0 auto; border-top:1px solid var(--border); margin-top:8px; padding-top:8px; }
+  .foot .acts{ margin-top:0; }
+  .foot .cc-note{ margin:6px 0 0; min-height:1.2em; }
   .cc-note{ margin:10px 4px 0; font-size:.92rem; color:var(--ink-soft); }
-  .f{ margin-bottom:16px; }
+  .f{ margin-bottom:12px; }
   .f > label{ display:block; margin-bottom:5px; color:var(--ink-soft); font-size:.95rem; }
   .f input[type=text], .f textarea, .f select{ width:100%; }
   .f textarea{ min-height:76px; resize:vertical; font-family:'Crimson Pro',serif; font-size:1rem; padding:8px 10px; border:1px solid var(--border); border-radius:3px; background:rgba(255,255,255,0.04); color:var(--ink); }
@@ -46,7 +62,16 @@
   .acts{ display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
   .chk{ display:flex; align-items:center; gap:8px; }
   .chk input{ width:auto; margin:0; }
-  @media (max-width:560px){ .row2{ grid-template-columns:1fr; } }
+  @media (max-width:820px){
+    .app{ padding:8px 10px; gap:6px; }
+    .bar .sub{ display:none; }
+    .bar h1{ font-size:1.4rem; }
+    .main{ grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); gap:8px; }
+    #cardPanel{ padding:8px; }
+    #card{ width:min(100%, calc(34dvh * 1.6129)); }
+    #cardPanel .cc-note{ display:none; }
+    .f{ margin-bottom:10px; }
+  }
 </style>
 </head>
 <body>
@@ -56,68 +81,89 @@
 <div class="mist m2" aria-hidden="true"></div>
 <div class="moon" aria-hidden="true"></div>
 
-<div class="wrap">
-  <a class="back-link" href="index.html">← Volver al índice</a>
-  <header class="top">
-    <div>
-      <div class="title-wrap"><h1>MoonCard</h1></div>
-      <p class="subtitle">Crea tu tarjeta de presentación bajo la luna. Todo se queda en tu navegador: no se sube nada.</p>
-    </div>
-  </header>
+<div class="app">
+  <div class="bar">
+    <a class="back-link" href="index.html">← Índice</a>
+    <div class="title-wrap"><h1>MoonCard</h1></div>
+    <p class="sub">Todo se queda en tu navegador: no se sube nada.</p>
+  </div>
 
-  <section class="panel" id="cardPanel">
-    <canvas id="card" width="1000" height="620" aria-label="Vista previa de tu MoonCard"></canvas>
-    <p class="cc-note">Arrastra los adornos con el dedo o el ratón para colocarlos donde quieras.</p>
-  </section>
+  <div class="main">
+    <section class="panel" id="cardPanel">
+      <canvas id="card" width="1000" height="620" aria-label="Vista previa de tu MoonCard"></canvas>
+      <p class="cc-note">Arrastra los adornos con el dedo o el ratón para colocarlos donde quieras.</p>
+    </section>
 
-  <section class="panel">
-    <h2>Diseña tu tarjeta</h2>
-
-    <div class="f"><label for="iNombre">Nombre</label><input id="iNombre" type="text" maxlength="24" value="Tu nombre" autocomplete="off"></div>
-    <div class="f"><label for="iSub">Personaje o rol</label><input id="iSub" type="text" maxlength="40" value="Tu personaje o rol" autocomplete="off"></div>
-    <div class="f"><label for="iBio">Sobre ti</label><textarea id="iBio" maxlength="160">Cuéntanos un poco de ti bajo la luna…</textarea></div>
-
-    <div class="f">
-      <label>Imagen de tu personaje</label>
-      <div class="acts" style="margin-top:0">
-        <button class="mini" id="bFoto" type="button">Elegir imagen</button>
-        <button class="mini" id="bFotoQ" type="button">Quitar</button>
-        <input type="file" id="iFoto" accept="image/*" hidden>
+    <section class="panel" id="ctrl">
+      <div class="tabs" id="tabs" role="tablist">
+        <button type="button" data-t="t1" class="on">Texto</button>
+        <button type="button" data-t="t2">Imagen</button>
+        <button type="button" data-t="t3">Estilo</button>
+        <button type="button" data-t="t4">Adornos</button>
       </div>
-      <p class="cc-note" style="margin:6px 0 0">Usa una imagen de tu personaje, no una foto tuya.</p>
-    </div>
-    <div class="row2">
-      <div class="f"><label>Forma</label><div class="seg" id="sShape"><button type="button" data-v="circle" class="on">Círculo</button><button type="button" data-v="square">Cuadrado</button></div></div>
-      <div class="f"><label for="iZoom">Zoom de la imagen</label><input id="iZoom" type="range" min="1" max="3" step="0.05" value="1"></div>
-    </div>
 
-    <div class="f"><label for="iFont">Tipografía del nombre</label><select id="iFont"></select></div>
-    <div class="f"><label for="iSize">Tamaño del nombre</label><input id="iSize" type="range" min="36" max="110" value="76"></div>
-    <div class="row2">
-      <div class="f"><label for="iCName">Color del nombre</label><input id="iCName" type="color" value="#eef0fb"></div>
-      <div class="f"><label for="iCAcc">Color de los detalles</label><input id="iCAcc" type="color" value="#d9c383"></div>
-    </div>
+      <div class="tabbody">
+        <div class="tabpane" id="t1">
+          <div class="f"><label for="iNombre">Nombre</label><input id="iNombre" type="text" maxlength="24" value="Tu nombre" autocomplete="off"></div>
+          <div class="f"><label for="iSub">Personaje o rol</label><input id="iSub" type="text" maxlength="40" value="Tu personaje o rol" autocomplete="off"></div>
+          <div class="f"><label for="iBio">Sobre ti</label><textarea id="iBio" maxlength="160">Cuéntanos un poco de ti bajo la luna…</textarea></div>
+          <div class="f chk"><input id="iTag" type="checkbox" checked><label for="iTag" style="margin:0">Mostrar «Moonlight Team» en la tarjeta</label></div>
+        </div>
 
-    <div class="f"><label>Fondo</label><div class="sw" id="swatches"></div></div>
+        <div class="tabpane" id="t2" hidden>
+          <div class="f">
+            <label>Imagen de tu personaje</label>
+            <div class="acts" style="margin-top:0">
+              <button class="mini" id="bFoto" type="button">Elegir imagen</button>
+              <button class="mini" id="bFotoQ" type="button">Quitar</button>
+              <input type="file" id="iFoto" accept="image/*" hidden>
+            </div>
+            <p class="cc-note" style="margin:6px 0 0">Usa una imagen de tu personaje, no una foto tuya.</p>
+          </div>
+          <div class="f"><label>Forma</label><div class="seg" id="sShape"><button type="button" data-v="circle" class="on">Círculo</button><button type="button" data-v="square">Cuadrado</button></div></div>
+          <div class="f"><label for="iZoom">Zoom de la imagen</label><input id="iZoom" type="range" min="1" max="3" step="0.05" value="1"></div>
+        </div>
 
-    <div class="f">
-      <label>Adornos</label>
-      <div class="stk" id="stk"></div>
-      <div class="row2" style="margin-top:10px">
-        <div><label for="iStSize" style="color:var(--ink-soft);font-size:.95rem">Tamaño del adorno seleccionado</label><input id="iStSize" type="range" min="30" max="180" value="70" style="width:100%;padding:0"></div>
-        <div class="acts" style="align-items:flex-end"><button class="mini" id="bStDel" type="button">Quitar seleccionado</button><button class="mini" id="bStClr" type="button">Quitar todos</button></div>
+        <div class="tabpane" id="t3" hidden>
+          <div class="f"><label for="iFont">Tipografía del nombre</label><select id="iFont"></select></div>
+          <div class="f"><label for="iSize">Tamaño del nombre</label><input id="iSize" type="range" min="36" max="110" value="76"></div>
+          <div class="row2">
+            <div class="f"><label for="iCName">Color del nombre</label><input id="iCName" type="color" value="#eef0fb"></div>
+            <div class="f"><label for="iCAcc">Color de los detalles</label><input id="iCAcc" type="color" value="#d9c383"></div>
+          </div>
+          <div class="f"><label>Fondo</label><div class="sw" id="swatches"></div></div>
+        </div>
+
+        <div class="tabpane" id="t4" hidden>
+          <div class="f">
+            <label>Toca un adorno para añadirlo</label>
+            <div class="stk" id="stk"></div>
+          </div>
+          <div class="f"><label for="iStSize">Tamaño del adorno seleccionado</label><input id="iStSize" type="range" min="30" max="180" value="70" style="width:100%;padding:0"></div>
+          <div class="acts"><button class="mini" id="bStDel" type="button">Quitar seleccionado</button><button class="mini" id="bStClr" type="button">Quitar todos</button></div>
+        </div>
       </div>
-    </div>
 
-    <div class="f chk"><input id="iTag" type="checkbox" checked><label for="iTag" style="margin:0">Mostrar «Moonlight Team» en la tarjeta</label></div>
-
-    <div class="acts">
-      <button class="btn-primary" id="bDown" type="button">Descargar imagen</button>
-      <button class="btn-ghost" id="bReset" type="button">Empezar de nuevo</button>
-    </div>
-    <p class="cc-note" id="msg"></p>
-  </section>
+      <div class="foot">
+        <div class="acts">
+          <button class="btn-primary" id="bDown" type="button">Descargar imagen</button>
+          <button class="btn-ghost" id="bReset" type="button">Empezar de nuevo</button>
+        </div>
+        <p class="cc-note" id="msg"></p>
+      </div>
+    </section>
+  </div>
 </div>
+
+<script>
+(function(){
+  var tb = document.querySelectorAll('#tabs button');
+  tb.forEach(function(b){ b.onclick = function(){
+    tb.forEach(function(x){ x.classList.toggle('on', x === b); });
+    document.querySelectorAll('.tabpane').forEach(function(p){ p.hidden = p.id !== b.dataset.t; });
+  }; });
+})();
+</script>
 
 <script>
 (function(){
